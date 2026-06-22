@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
-import '../../services/mock_auth_service.dart';
+import '../../services/crm_api.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.onLogin});
+  const LoginScreen({super.key, required this.api, required this.onLogin});
 
+  final CrmApi api;
   final VoidCallback onLogin;
 
   @override
@@ -14,11 +16,11 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'demo@daphnex.com');
-  final _passwordController = TextEditingController(text: 'password');
-  final _authService = const MockAuthService();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -28,15 +30,34 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    final authenticated = await _authService.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    if (authenticated) widget.onLogin();
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.api.login(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      if (mounted) {
+        widget.onLogin();
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _errorMessage = 'Login failed. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -61,24 +82,50 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.blue,
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: const [
-                            BoxShadow(color: Color(0x331769E0), blurRadius: 24, offset: Offset(0, 10)),
+                            BoxShadow(
+                              color: Color(0x331769E0),
+                              blurRadius: 24,
+                              offset: Offset(0, 10),
+                            ),
                           ],
                         ),
-                        child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 34),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 28),
-                    Text('Welcome to Daphnex', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800, color: AppColors.navy)),
+                    Text(
+                      'Welcome to Daphnex',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.navy,
+                          ),
+                    ),
                     const SizedBox(height: 8),
-                    const Text('Your business, beautifully organised.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted, fontSize: 16)),
+                    const Text(
+                      'Your business, beautifully organised.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted, fontSize: 16),
+                    ),
                     const SizedBox(height: 36),
                     TextFormField(
                       key: const Key('emailField'),
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(labelText: 'Email address', prefixIcon: Icon(Icons.mail_outline_rounded)),
-                      validator: (value) => value == null || !value.contains('@') ? 'Enter a valid email address' : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Email address',
+                        prefixIcon: Icon(Icons.mail_outline_rounded),
+                      ),
+                      validator: (value) =>
+                          value == null || !value.contains('@')
+                          ? 'Enter a valid email address'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -90,24 +137,59 @@ class _LoginScreenState extends State<LoginScreen> {
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          tooltip: _obscurePassword
+                              ? 'Show password'
+                              : 'Hide password',
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
                         ),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Enter your password' : null,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Enter your password'
+                          : null,
                       onFieldSubmitted: (_) => _login(),
                     ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        key: const Key('loginError'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red.shade800),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     FilledButton(
                       key: const Key('loginButton'),
                       onPressed: _isLoading ? null : _login,
                       child: _isLoading
-                          ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Text('Log in'),
                     ),
                     const SizedBox(height: 20),
-                    const Text('Demo mode · Any valid email and password will work', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                    const Text(
+                      'Secure connection to Daphnex CRM',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
                   ],
                 ),
               ),

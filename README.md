@@ -1,33 +1,69 @@
 # Daphnex CRM Mobile
 
-An Android-first Flutter CRM learning application. Phase 1 is a polished,
-offline MVP powered entirely by mock data; it does not connect to the Daphnex
-CRM WordPress plugin or any production service.
+An Android-first Flutter client for the Daphnex CRM WordPress plugin. Phase 2B
+connects the original Material 3 interface to the versioned CRM REST API while
+retaining mock fixtures only as a clearly labelled dashboard fallback.
 
-## Features
+## Live features
 
-- Mock email/password login
-- Dashboard with business summary metrics
-- Searchable client list and detailed client activity profiles
-- Reminders that can be added and marked complete
-- Profile, theme placeholder, version, and logout settings
-- Material 3 interface with Daphnex blue-and-white branding
+- WordPress administrator login through `POST /login`
+- Encrypted Android Keystore storage for the 12-hour Bearer token
+- Live dashboard metrics, clients, profiles, activity, and reminders
+- Local client search and filtering
+- Reminder creation and completion with success/error feedback
+- Loading, empty, retry, and unreachable-API states
+- Session restoration and secure local logout
 
 ## Requirements
 
 - Flutter stable 3.35.1 or later
 - Dart 3.9 or later
-- Android Studio with Android SDK, platform-tools, and build-tools
-- Android emulator or a physical device with USB debugging enabled
+- Android SDK and build-tools
+- Android 6.0/API 23 or later
+- Daphnex CRM WordPress plugin 0.9.0 or later
 
-Check the environment:
+## API configuration
 
-```powershell
-flutter doctor -v
-flutter devices
+The central configuration is in `lib/core/config/api_config.dart`. Its LocalWP
+default is:
+
+```text
+http://daphnex-crm.local/wp-json/daphnex-crm/v1/
 ```
 
-## Setup and run
+Override it without editing source code:
+
+```powershell
+flutter run --dart-define=DAPHNEX_CRM_API_URL=http://192.168.1.20/wp-json/daphnex-crm/v1/
+```
+
+For production:
+
+```powershell
+flutter build apk --release --dart-define=DAPHNEX_CRM_API_URL=https://crm.daphnex.co.uk/wp-json/daphnex-crm/v1/
+```
+
+Before a production release, set `android:usesCleartextTraffic="false"` in the
+main Android manifest. HTTPS should always be used outside local development.
+
+## LocalWP access from Android
+
+`daphnex-crm.local` resolves on the Windows host but normally not inside Android.
+Choose one of these development setups:
+
+1. Android emulator: map `daphnex-crm.local` to emulator host gateway
+   `10.0.2.2` in the emulator's DNS/hosts configuration.
+2. Physical device: map `daphnex-crm.local` to the Windows computer's LAN IP,
+   keep both devices on the same network, and allow LocalWP through the firewall.
+3. Configure LocalWP/reverse proxy to answer on a reachable LAN IP, then pass
+   that full API URL using `--dart-define=DAPHNEX_CRM_API_URL=...`.
+
+The hostname must still route to the correct LocalWP virtual host. A simple IP
+replacement may require configuring the proxy's host name as well. Confirm from
+the Android browser that `/wp-json/daphnex-crm/v1/dashboard` returns JSON `401`
+before launching the app; that response proves routing works.
+
+## Setup and verification
 
 ```powershell
 flutter pub get
@@ -36,48 +72,59 @@ flutter test
 flutter run
 ```
 
-The demo login is pre-filled. Any non-empty password and syntactically valid
-email address are accepted.
-
-## Android builds
+Build APKs:
 
 ```powershell
 flutter build apk --debug
 flutter build apk --release
 ```
 
-Build outputs are written to `build/app/outputs/flutter-apk/`. The current
-release configuration uses the debug signing key for local learning builds;
-configure a private upload keystore before publishing to Google Play.
+Outputs are written to `build/app/outputs/flutter-apk/`.
 
-## Project structure
+If OneDrive locks generated Gradle intermediates, build outside the synced
+folder without moving the project:
+
+```powershell
+$env:DAPHNEX_BUILD_DIR = "$env:LOCALAPPDATA\Temp\daphnex-crm-mobile-build"
+flutter build apk --release
+```
+
+The Android build script uses the normal `build/` directory when that variable
+is absent.
+
+## Architecture
 
 ```text
 lib/
-├── core/theme/          # Shared colours and Material theme
+├── core/
+│   ├── config/          # Environment-switchable API URL
+│   ├── errors/          # Stable API exception type
+│   ├── storage/         # Android encrypted token storage
+│   ├── theme/           # Daphnex Material theme
+│   └── widgets/         # Reusable loading/error/empty states
 ├── features/
-│   ├── auth/            # Mock login
-│   ├── clients/         # Client list, search, and profile
-│   ├── dashboard/       # CRM summary
-│   ├── navigation/      # Bottom navigation shell
-│   ├── reminders/       # Mutable local reminder list
-│   └── settings/        # Profile, preferences, and logout
-├── models/              # Client, activity, and reminder models
-├── services/            # Mock authentication and CRM data sources
-├── app.dart             # Application state and root routing
-└── main.dart            # Flutter entry point
+│   ├── auth/
+│   ├── clients/
+│   ├── dashboard/
+│   ├── navigation/
+│   ├── reminders/
+│   └── settings/
+├── models/              # Typed API response/request models
+├── repositories/        # Live data access and dashboard fallback policy
+├── services/            # HTTP/Bearer API client and mock fixtures
+├── app.dart
+└── main.dart
 ```
 
-## Future integration
+UI widgets depend on the `CrmApi` abstraction rather than making HTTP calls.
+This keeps authentication, JSON parsing, secure storage, fallback rules, and
+future production changes outside the presentation layer.
 
-The service layer is the intended boundary for future CRM REST authentication
-and data calls. Mock fixtures can be replaced with repositories backed by an
-HTTP client without coupling screens to the backend. Future phases can add:
+## Security notes
 
-- Secure token storage and authenticated REST API calls
-- Push notification registration and reminder delivery
-- Camera permissions and QR code scanning
-- Loyalty accounts, rewards, balances, and redemption flows
-- Persistent local caching and offline synchronisation
-
-Comments in the mock services identify the first API replacement points.
+- Tokens use `flutter_secure_storage` and Android Keystore-backed AES-GCM/RSA
+  protection; they are never written to plain preferences.
+- HTTP request bodies and tokens are not logged.
+- HTTP `401` clears the locally stored token.
+- Dashboard fallback use is explicitly logged with `debugPrint` and shown in UI.
+- Production must use HTTPS and disable Android cleartext traffic.

@@ -1,63 +1,53 @@
 import '../models/activity.dart';
 import '../models/client.dart';
+import '../models/dashboard_data.dart';
 import '../models/reminder.dart';
 
 abstract final class MockCrmService {
-  /// Future integration point: replace these fixtures with REST API responses.
+  /// Development-only fallback used when the dashboard API is unreachable.
+  static const dashboardFallback = DashboardData(
+    totalClients: 48,
+    activeJobs: 12,
+    pendingInvoices: 7,
+    upcomingReminders: 5,
+    isFallback: true,
+  );
+
+  /// Retained for development previews and offline tests only.
   static const clients = <Client>[
     Client(
+      id: 1,
       name: 'Olivia Bennett',
       email: 'olivia@northstar.co.uk',
       phone: '+44 7700 900123',
       company: 'Northstar Studio',
       notes: 'Prefers email updates. Reviewing a quarterly support package.',
-      initials: 'OB',
       activities: [
-        Activity(title: 'Proposal sent', detail: 'Website care plan', date: 'Today, 10:30'),
-        Activity(title: 'Call completed', detail: 'Discussed Q3 priorities', date: '18 Jun'),
-        Activity(title: 'Client added', detail: 'Imported from enquiry', date: '12 Jun'),
+        Activity(
+          title: 'Proposal Sent',
+          detail: 'Website care plan',
+          date: 'Today, 10:30',
+        ),
       ],
     ),
     Client(
+      id: 2,
       name: 'Marcus Chen',
       email: 'marcus@brightline.io',
       phone: '+44 7700 900456',
       company: 'Brightline Digital',
-      notes: 'Monthly retainer client. Next review scheduled for July.',
-      initials: 'MC',
-      activities: [
-        Activity(title: 'Invoice paid', detail: 'Invoice #1048', date: 'Yesterday'),
-        Activity(title: 'Meeting booked', detail: 'Monthly review', date: '15 Jun'),
-      ],
-    ),
-    Client(
-      name: 'Amelia Foster',
-      email: 'amelia@foundryhome.com',
-      phone: '+44 7700 900789',
-      company: 'Foundry Home',
-      notes: 'Interested in a customer loyalty programme later this year.',
-      initials: 'AF',
-      activities: [
-        Activity(title: 'Note added', detail: 'Loyalty discovery brief', date: '17 Jun'),
-        Activity(title: 'Email opened', detail: 'Welcome sequence', date: '14 Jun'),
-      ],
-    ),
-    Client(
-      name: 'Noah Williams',
-      email: 'noah@oakandstone.uk',
-      phone: '+44 7700 901012',
-      company: 'Oak & Stone',
-      notes: 'Send project progress each Friday afternoon.',
-      initials: 'NW',
-      activities: [
-        Activity(title: 'Task completed', detail: 'Brand asset upload', date: '19 Jun'),
-      ],
+      notes: 'Monthly retainer client.',
     ),
   ];
 
-  static List<Reminder> createReminders() => [
-    Reminder(title: 'Follow up with Olivia', due: 'Today · 2:00 PM'),
-    Reminder(title: 'Send Brightline invoice', due: 'Tomorrow · 9:00 AM'),
-    Reminder(title: 'Prepare Oak & Stone update', due: 'Friday · 3:30 PM'),
+  static const reminders = <Reminder>[
+    Reminder(
+      id: 1,
+      title: 'Follow up with Olivia',
+      date: '2026-06-22',
+      time: '14:00',
+      status: 'pending',
+      clientId: 1,
+    ),
   ];
 }
