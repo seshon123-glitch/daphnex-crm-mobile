@@ -1,8 +1,8 @@
 # Daphnex CRM Mobile
 
-An Android-first Flutter client for the Daphnex CRM WordPress plugin. Phase 2B
-connects the original Material 3 interface to the versioned CRM REST API while
-retaining mock fixtures only as a clearly labelled dashboard fallback.
+An Android-first Flutter client for the Daphnex CRM WordPress plugin. Phase 2C
+uses the live HTTPS Daphnex CRM REST API by default while retaining mock
+fixtures only as a clearly labelled dashboard fallback.
 
 ## Live features
 
@@ -24,27 +24,27 @@ retaining mock fixtures only as a clearly labelled dashboard fallback.
 
 ## API configuration
 
-The central configuration is in `lib/core/config/api_config.dart`. Its LocalWP
-default is:
+The central configuration is in `lib/core/config/api_config.dart`. Its live
+HTTPS default is:
 
 ```text
-http://daphnex-crm.local/wp-json/daphnex-crm/v1/
+https://daphnex.co.uk/wp-json/daphnex-crm/v1/
 ```
 
 Override it without editing source code:
 
 ```powershell
+flutter run --dart-define=DAPHNEX_CRM_API_URL=https://example.com/wp-json/daphnex-crm/v1/
+```
+
+For a LocalWP development API:
+
+```powershell
 flutter run --dart-define=DAPHNEX_CRM_API_URL=http://192.168.1.20/wp-json/daphnex-crm/v1/
 ```
 
-For production:
-
-```powershell
-flutter build apk --release --dart-define=DAPHNEX_CRM_API_URL=https://crm.daphnex.co.uk/wp-json/daphnex-crm/v1/
-```
-
-Before a production release, set `android:usesCleartextTraffic="false"` in the
-main Android manifest. HTTPS should always be used outside local development.
+Android cleartext traffic is not enabled in the release manifest. Use HTTPS for
+production and only pass an HTTP LocalWP URL during controlled development.
 
 ## LocalWP access from Android
 
@@ -127,4 +127,4 @@ future production changes outside the presentation layer.
 - HTTP request bodies and tokens are not logged.
 - HTTP `401` clears the locally stored token.
 - Dashboard fallback use is explicitly logged with `debugPrint` and shown in UI.
-- Production must use HTTPS and disable Android cleartext traffic.
+- Production uses HTTPS and Android cleartext traffic is disabled by default.
