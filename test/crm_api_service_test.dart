@@ -68,7 +68,7 @@ void main() {
         isA<ApiException>().having(
           (error) => error.message,
           'message',
-          contains('expired'),
+          contains('Authentication failed'),
         ),
       ),
     );

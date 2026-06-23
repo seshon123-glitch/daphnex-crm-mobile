@@ -25,13 +25,16 @@ class CrmApiService {
   }
 
   Future<void> login({required String email, required String password}) async {
+    final endpoint = ApiConfig.endpoint('login');
     final response = await _send(
+      endpoint,
       () => _client.post(
-        ApiConfig.endpoint('login'),
+        endpoint,
         headers: _jsonHeaders,
         body: jsonEncode({'email': email.trim(), 'password': password}),
       ),
       authenticated: false,
+      loginRequest: true,
     );
     final data = _decodeObject(response);
     final token = data['token'] as String?;
@@ -80,7 +83,8 @@ class CrmApiService {
 
   Future<http.Response> _authenticatedGet(String path) async {
     final headers = await _authenticatedHeaders();
-    return _send(() => _client.get(ApiConfig.endpoint(path), headers: headers));
+    final endpoint = ApiConfig.endpoint(path);
+    return _send(endpoint, () => _client.get(endpoint, headers: headers));
   }
 
   Future<http.Response> _authenticatedPost(
@@ -88,12 +92,10 @@ class CrmApiService {
     Map<String, dynamic> body,
   ) async {
     final headers = await _authenticatedHeaders();
+    final endpoint = ApiConfig.endpoint(path);
     return _send(
-      () => _client.post(
-        ApiConfig.endpoint(path),
-        headers: headers,
-        body: jsonEncode(body),
-      ),
+      endpoint,
+      () => _client.post(endpoint, headers: headers, body: jsonEncode(body)),
     );
   }
 
@@ -106,8 +108,10 @@ class CrmApiService {
   }
 
   Future<http.Response> _send(
+    Uri endpoint,
     Future<http.Response> Function() operation, {
     bool authenticated = true,
+    bool loginRequest = false,
   }) async {
     try {
       final response = await operation().timeout(_timeout);
@@ -118,19 +122,28 @@ class CrmApiService {
         await _tokenStore.deleteToken();
       }
       throw ApiException(
-        _errorMessage(response),
+        _errorMessage(response, loginRequest: loginRequest),
         statusCode: response.statusCode,
+        endpoint: endpoint,
+        responseBody: response.body,
       );
     } on ApiException {
       rethrow;
     } on TimeoutException {
-      throw const ApiException('The CRM took too long to respond.');
+      throw ApiException(
+        'The live CRM server took too long to respond.',
+        endpoint: endpoint,
+      );
     } on http.ClientException {
-      throw const ApiException(
-        'The CRM is unreachable. Check your connection and local host mapping.',
+      throw ApiException(
+        'The live CRM server could not be reached. Check your internet connection and try again.',
+        endpoint: endpoint,
       );
     } on FormatException {
-      throw const ApiException('The CRM returned an unreadable response.');
+      throw ApiException(
+        'The live CRM server returned an unreadable response.',
+        endpoint: endpoint,
+      );
     }
   }
 
@@ -150,7 +163,13 @@ class CrmApiService {
     return items.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
-  String _errorMessage(http.Response response) {
+  String _errorMessage(http.Response response, {required bool loginRequest}) {
+    if (loginRequest && response.statusCode == 401) {
+      return 'Invalid email or password.';
+    }
+    if (response.statusCode == 401) {
+      return 'Authentication failed. Please log in again.';
+    }
     try {
       final data = jsonDecode(response.body);
       if (data is Map<String, dynamic>) {

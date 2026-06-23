@@ -1,4 +1,5 @@
 import 'package:daphnex_crm_mobile/app.dart';
+import 'package:daphnex_crm_mobile/core/config/api_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,7 +40,15 @@ void main() {
     await tester.tap(find.byKey(const Key('loginButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('loginError')), findsOneWidget);
-    expect(find.text('Invalid email or password.'), findsOneWidget);
+    expect(find.textContaining('Invalid email or password.'), findsOneWidget);
+    expect(
+      find.textContaining('API base URL: ${ApiConfig.baseUrl}'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Endpoint called: ${ApiConfig.endpoint('login')}'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('clients search and live profile work', (tester) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/api_config.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/crm_api.dart';
@@ -47,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _errorMessage = error.message);
+        setState(() => _errorMessage = _formatLoginError(error));
       }
     } catch (_) {
       if (mounted) {
@@ -58,6 +59,36 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  String _formatLoginError(ApiException error) {
+    final buffer = StringBuffer(error.message);
+    buffer
+      ..writeln()
+      ..writeln()
+      ..writeln('Debug details:')
+      ..writeln('API base URL: ${ApiConfig.baseUrl}')
+      ..writeln(
+        'Endpoint called: ${error.endpoint ?? ApiConfig.endpoint('login')}',
+      )
+      ..writeln('HTTP status: ${error.statusCode ?? 'Unavailable'}');
+
+    final body = error.responseBody;
+    if (body != null && body.trim().isNotEmpty) {
+      buffer.writeln('Error body: ${_truncate(body.trim())}');
+    } else {
+      buffer.writeln('Error body: Unavailable');
+    }
+
+    return buffer.toString().trimRight();
+  }
+
+  String _truncate(String value) {
+    const maxLength = 600;
+    if (value.length <= maxLength) {
+      return value;
+    }
+    return '${value.substring(0, maxLength)}...';
   }
 
   @override
