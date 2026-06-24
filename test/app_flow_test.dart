@@ -6,6 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'fakes/fake_crm_api.dart';
 
 void main() {
+  Finder scrollableByKey(Key key) {
+    return find
+        .descendant(of: find.byKey(key), matching: find.byType(Scrollable))
+        .first;
+  }
+
   Future<FakeCrmApi> login(WidgetTester tester) async {
     final api = FakeCrmApi();
     await tester.pumpWidget(DaphnexCrmApp(api: api));
@@ -25,8 +31,15 @@ void main() {
     expect(api.lastLoginEmail, 'admin@example.test');
     expect(find.text('Business overview'), findsOneWidget);
     expect(find.text('Total Clients'), findsOneWidget);
-    expect(find.text('Active Jobs'), findsOneWidget);
+    expect(find.text('Active Jobs / Projects'), findsOneWidget);
     expect(find.text('Unread Alerts'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Quick actions'),
+      300,
+      scrollable: scrollableByKey(const Key('dashboardScroll')),
+    );
+    expect(find.text('Quick actions'), findsOneWidget);
+    expect(find.text('Turnover / Revenue'), findsWidgets);
   });
 
   testWidgets('failed login displays API error', (tester) async {
@@ -101,20 +114,24 @@ void main() {
     final api = await login(tester);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('logoutButton')),
+      300,
+      scrollable: scrollableByKey(const Key('settingsScroll')),
+    );
     await tester.tap(find.byKey(const Key('logoutButton')));
     await tester.pumpAndSettle();
     expect(api.session, isFalse);
-    expect(find.text('Welcome to Daphnex'), findsOneWidget);
+    expect(find.text('Daphnex CRM'), findsOneWidget);
   });
 
-  testWidgets('more screen opens Phase 3B modules', (tester) async {
+  testWidgets('more screen opens polished module menu', (tester) async {
     await login(tester);
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
     expect(find.text('Invoices'), findsWidgets);
-    expect(find.text('Jobs'), findsWidgets);
+    expect(find.text('Jobs / Projects'), findsWidgets);
     expect(find.text('Documents'), findsWidgets);
-    expect(find.text('Notifications'), findsWidgets);
 
     await tester.tap(find.text('Invoices').last);
     await tester.pumpAndSettle();
@@ -122,7 +139,7 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Jobs').last);
+    await tester.tap(find.text('Jobs / Projects').last);
     await tester.pumpAndSettle();
     expect(find.text('Website maintenance'), findsOneWidget);
     await tester.pageBack();
@@ -134,8 +151,35 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Notifications'),
+      300,
+      scrollable: scrollableByKey(const Key('moreScroll')),
+    );
+    expect(find.text('Notifications'), findsWidgets);
     await tester.tap(find.text('Notifications').last);
     await tester.pumpAndSettle();
     expect(find.text('Follow up with Olivia'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Turnover / Revenue'),
+      300,
+      scrollable: scrollableByKey(const Key('moreScroll')),
+    );
+    expect(find.text('Turnover / Revenue'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('Tasks'),
+      300,
+      scrollable: scrollableByKey(const Key('moreScroll')),
+    );
+    expect(find.text('Tasks'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('About Daphnex CRM'),
+      300,
+      scrollable: scrollableByKey(const Key('moreScroll')),
+    );
+    expect(find.text('About Daphnex CRM'), findsWidgets);
   });
 }

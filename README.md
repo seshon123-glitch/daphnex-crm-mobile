@@ -1,6 +1,6 @@
 # Daphnex CRM Mobile
 
-An Android-first Flutter client for the Daphnex CRM WordPress plugin. Phase 2C
+An Android-first Flutter client for the Daphnex CRM WordPress plugin. The app
 uses the live HTTPS Daphnex CRM REST API by default while retaining mock
 fixtures only as a clearly labelled dashboard fallback.
 
@@ -8,9 +8,13 @@ fixtures only as a clearly labelled dashboard fallback.
 
 - WordPress administrator login through `POST /login`
 - Encrypted Android Keystore storage for the 12-hour Bearer token
-- Live dashboard metrics, clients, profiles, activity, and reminders
+- Live dashboard metrics, clients, profiles, activity, and reminders/tasks
+- Invoices, jobs/projects, documents and notifications modules
+- Dashboard shortcut cards for Clients, Tasks, Reminders, Invoices, Jobs /
+  Projects, Documents, Notifications, and Turnover / Revenue
 - Local client search and filtering
 - Reminder creation and completion with success/error feedback
+- Invoice PDF buttons prepared for a future backend PDF endpoint
 - Loading, empty, retry, and unreachable-API states
 - Session restoration and secure local logout
 
@@ -20,7 +24,15 @@ fixtures only as a clearly labelled dashboard fallback.
 - Dart 3.9 or later
 - Android SDK and build-tools
 - Android 6.0/API 23 or later
-- Daphnex CRM WordPress plugin 0.9.0 or later
+- Daphnex CRM WordPress plugin 0.9.1 or later
+
+## Branding
+
+Phase 4A adds a professional Daphnex blue/white theme, Android launcher icon,
+splash background, reusable in-app logo mark and branded login/about/settings
+sections. The current logo is a clean temporary Daphnex `D` placeholder. Replace
+the generated Android launcher icons and `DaphnexLogoMark` implementation with
+the final company logo artwork when approved brand assets are available.
 
 ## API configuration
 
@@ -97,17 +109,24 @@ is absent.
 ```text
 lib/
 ├── core/
-│   ├── config/          # Environment-switchable API URL
+│   ├── config/          # API URL and app/company information
 │   ├── errors/          # Stable API exception type
 │   ├── storage/         # Android encrypted token storage
 │   ├── theme/           # Daphnex Material theme
-│   └── widgets/         # Reusable loading/error/empty states
+│   └── widgets/         # Reusable loading/error/empty/brand widgets
 ├── features/
+│   ├── about/
 │   ├── auth/
 │   ├── clients/
 │   ├── dashboard/
+│   ├── documents/
+│   ├── invoices/
+│   ├── jobs/
+│   ├── more/
 │   ├── navigation/
+│   ├── notifications/
 │   ├── reminders/
+│   ├── revenue/
 │   └── settings/
 ├── models/              # Typed API response/request models
 ├── repositories/        # Live data access and dashboard fallback policy
@@ -128,3 +147,15 @@ future production changes outside the presentation layer.
 - HTTP `401` clears the locally stored token.
 - Dashboard fallback use is explicitly logged with `debugPrint` and shown in UI.
 - Production uses HTTPS and Android cleartext traffic is disabled by default.
+
+## Future API integration notes
+
+- Tasks currently map to the existing Reminders API until a dedicated task API
+  is added to the CRM backend.
+- Turnover / Revenue currently displays live dashboard invoice values such as
+  outstanding invoice amount and unpaid invoice count. Paid/completed turnover
+  totals should be connected when a dedicated turnover API becomes available.
+- Invoice detail now includes `View PDF Invoice` and `Download PDF Invoice`
+  placeholders. The backend still needs a secure invoice PDF endpoint that
+  generates PDFs using Daphnex letterhead before the buttons can perform a real
+  download.

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/config/api_config.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/brand_logo.dart';
 import '../../services/crm_api.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -105,41 +106,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Align(
-                      child: Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.blue,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x331769E0),
-                              blurRadius: 24,
-                              offset: Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Colors.white,
-                          size: 34,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Welcome to Daphnex',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.navy,
-                          ),
-                    ),
+                    const Align(child: DaphnexLogoMark()),
+                    const SizedBox(height: 22),
+                    const DaphnexWordmark(),
                     const SizedBox(height: 8),
                     const Text(
-                      'Your business, beautifully organised.',
+                      'Secure access to clients, invoices, jobs and tasks.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.muted, fontSize: 16),
                     ),

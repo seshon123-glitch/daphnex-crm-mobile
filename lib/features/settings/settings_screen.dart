@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_info.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/brand_logo.dart';
+import '../about/about_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.onLogout});
@@ -12,26 +15,17 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        key: const Key('settingsScroll'),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          Card(
+          const Card(
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(18),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: AppColors.blue,
-                    child: Text(
-                      'DS',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
+                  DaphnexLogoMark(size: 54),
+                  SizedBox(width: 14),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -49,11 +43,6 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Edit profile',
-                    onPressed: () {},
-                    icon: const Icon(Icons.edit_outlined),
                   ),
                 ],
               ),
@@ -97,11 +86,45 @@ class SettingsScreen extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.info_outline_rounded, color: AppColors.blue),
-              title: Text('App version'),
-              trailing: Text('1.0.0', style: TextStyle(color: AppColors.muted)),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.blue,
+                  ),
+                  title: const Text('App version'),
+                  trailing: const Text(
+                    AppInfo.version,
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                ),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: const Icon(
+                    Icons.business_rounded,
+                    color: AppColors.blue,
+                  ),
+                  title: const Text('About Daphnex CRM'),
+                  subtitle: const Text(
+                    '${AppInfo.company} · ${AppInfo.website}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AboutScreen()),
+                  ),
+                ),
+                const Divider(height: 1, indent: 56),
+                const ListTile(
+                  leading: Icon(
+                    Icons.support_agent_rounded,
+                    color: AppColors.blue,
+                  ),
+                  title: Text('Support'),
+                  subtitle: Text(AppInfo.supportEmail),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),

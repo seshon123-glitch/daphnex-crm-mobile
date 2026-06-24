@@ -25,11 +25,17 @@ class _HomeShellState extends State<HomeShell> {
     final screens = <Widget>[
       DashboardScreen(
         api: widget.api,
+        onOpenClients: () => setState(() => _selectedIndex = 1),
+        onOpenTasks: () => setState(() => _selectedIndex = 2),
         onOpenMore: () => setState(() => _selectedIndex = 3),
       ),
       ClientsScreen(api: widget.api),
       RemindersScreen(api: widget.api),
-      MoreScreen(api: widget.api),
+      MoreScreen(
+        api: widget.api,
+        onOpenTasks: () => setState(() => _selectedIndex = 2),
+        onOpenSettings: () => setState(() => _selectedIndex = 4),
+      ),
       SettingsScreen(onLogout: widget.onLogout),
     ];
     return Scaffold(

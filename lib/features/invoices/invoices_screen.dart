@@ -184,6 +184,16 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
+  void _showPdfPlaceholder() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'PDF invoice download will be available after the invoice PDF API is added.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final invoice = _invoice;
@@ -220,6 +230,41 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                         ? 'No notes.'
                         : invoice.notes,
                   },
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Invoice PDF',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Prepared for future Daphnex letterhead invoice PDFs.',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton.icon(
+                          onPressed: _showPdfPlaceholder,
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('View PDF Invoice'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _showPdfPlaceholder,
+                          icon: const Icon(Icons.download_rounded),
+                          label: const Text('Download PDF Invoice'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Row(

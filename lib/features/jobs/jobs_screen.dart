@@ -68,12 +68,12 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Jobs')),
+      appBar: AppBar(title: const Text('Jobs / Projects')),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('createJobButton'),
         onPressed: _createJob,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Job'),
+        label: const Text('Job / Project'),
       ),
       body: Column(
         children: [
@@ -99,10 +99,10 @@ class _JobsScreenState extends State<JobsScreen> {
             child: _error != null
                 ? ErrorStateView(message: _error!, onRetry: _load)
                 : _jobs == null
-                ? const LoadingView(label: 'Loading jobs…')
+                ? const LoadingView(label: 'Loading jobs / projects…')
                 : _jobs!.isEmpty
                 ? const EmptyStateView(
-                    message: 'No jobs found.',
+                    message: 'No jobs / projects found.',
                     icon: Icons.work_outline_rounded,
                   )
                 : RefreshIndicator(
@@ -211,11 +211,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Widget build(BuildContext context) {
     final job = _job;
     return Scaffold(
-      appBar: AppBar(title: const Text('Job detail')),
+      appBar: AppBar(title: const Text('Job / project detail')),
       body: _error != null
           ? ErrorStateView(message: _error!, onRetry: _load)
           : job == null
-          ? const LoadingView(label: 'Loading job…')
+          ? const LoadingView(label: 'Loading job / project…')
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
@@ -341,7 +341,7 @@ class _JobDialogState extends State<_JobDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Create job'),
+    title: const Text('Create job / project'),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -352,7 +352,7 @@ class _JobDialogState extends State<_JobDialog> {
           ),
           TextField(
             controller: _title,
-            decoration: const InputDecoration(labelText: 'Job title'),
+            decoration: const InputDecoration(labelText: 'Job / project title'),
           ),
           TextField(
             controller: _description,
@@ -416,7 +416,7 @@ class _NotesDialogState extends State<_NotesDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Add job notes'),
+    title: const Text('Add job / project notes'),
     content: TextField(
       controller: _notes,
       minLines: 3,
