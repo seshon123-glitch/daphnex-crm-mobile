@@ -7,7 +7,11 @@ import '../core/config/api_config.dart';
 import '../core/errors/api_exception.dart';
 import '../core/storage/token_store.dart';
 import '../models/client.dart';
+import '../models/crm_document.dart';
+import '../models/crm_notification.dart';
 import '../models/dashboard_data.dart';
+import '../models/invoice.dart';
+import '../models/job.dart';
 import '../models/reminder.dart';
 
 class CrmApiService {
@@ -81,6 +85,130 @@ class CrmApiService {
     return Reminder.fromJson(_decodeObject(response));
   }
 
+  Future<List<Invoice>> fetchInvoices() async {
+    final response = await _authenticatedGet('invoices?per_page=100');
+    return _decodeItems(response).map(Invoice.fromJson).toList(growable: false);
+  }
+
+  Future<Invoice> fetchInvoice(int id) async {
+    final response = await _authenticatedGet('invoices/$id');
+    return Invoice.fromJson(_decodeObject(response));
+  }
+
+  Future<Invoice> createInvoice(CreateInvoiceRequest request) async {
+    final response = await _authenticatedPost('invoices', request.toJson());
+    return Invoice.fromJson(_decodeObject(response));
+  }
+
+  Future<Invoice> markInvoicePaid(int id) async {
+    final response = await _authenticatedPost(
+      'invoices/$id/mark-paid',
+      const {},
+    );
+    return Invoice.fromJson(_decodeObject(response));
+  }
+
+  Future<Invoice> markInvoiceUnpaid(int id) async {
+    final response = await _authenticatedPost(
+      'invoices/$id/mark-unpaid',
+      const {},
+    );
+    return Invoice.fromJson(_decodeObject(response));
+  }
+
+  Future<List<Job>> fetchJobs({String status = 'all'}) async {
+    final response = await _authenticatedGet(
+      'jobs?per_page=100&status=${Uri.encodeQueryComponent(status)}',
+    );
+    return _decodeItems(response).map(Job.fromJson).toList(growable: false);
+  }
+
+  Future<Job> fetchJob(int id) async {
+    final response = await _authenticatedGet('jobs/$id');
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<Job> createJob(CreateJobRequest request) async {
+    final response = await _authenticatedPost('jobs', request.toJson());
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<Job> completeJob(int id) async {
+    final response = await _authenticatedPost('jobs/$id/complete', const {});
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<Job> reopenJob(int id) async {
+    final response = await _authenticatedPost('jobs/$id/reopen', const {});
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<Job> addJobNotes(int id, String notes, {bool append = true}) async {
+    final response = await _authenticatedPost('jobs/$id/notes', {
+      'notes': notes,
+      'append': append,
+    });
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<List<CrmDocument>> fetchDocuments() async {
+    final response = await _authenticatedGet('documents?per_page=100');
+    return _decodeItems(
+      response,
+    ).map(CrmDocument.fromJson).toList(growable: false);
+  }
+
+  Future<List<CrmDocument>> fetchClientDocuments(int clientId) async {
+    final response = await _authenticatedGet(
+      'clients/$clientId/documents?per_page=100',
+    );
+    return _decodeItems(
+      response,
+    ).map(CrmDocument.fromJson).toList(growable: false);
+  }
+
+  Future<CrmDocument> uploadClientDocument({
+    required int clientId,
+    required String title,
+    required String type,
+    required String filePath,
+    String description = '',
+    int projectId = 0,
+  }) async {
+    final headers = await _authenticatedHeaders(includeContentType: false);
+    final endpoint = ApiConfig.endpoint('clients/$clientId/documents');
+    final request = http.MultipartRequest('POST', endpoint)
+      ..headers.addAll(headers)
+      ..fields.addAll({
+        'title': title,
+        'type': type,
+        'description': description,
+        'project_id': '$projectId',
+      })
+      ..files.add(await http.MultipartFile.fromPath('file', filePath));
+    final streamed = await _send(
+      endpoint,
+      () async => http.Response.fromStream(await _client.send(request)),
+    );
+    return CrmDocument.fromJson(_decodeObject(streamed));
+  }
+
+  Future<DocumentDownload> fetchDocumentDownload(int id) async {
+    final response = await _authenticatedGet('documents/$id/download');
+    return DocumentDownload.fromJson(_decodeObject(response));
+  }
+
+  Future<List<CrmNotification>> fetchNotifications() async {
+    final response = await _authenticatedGet('notifications?per_page=100');
+    return _decodeItems(
+      response,
+    ).map(CrmNotification.fromJson).toList(growable: false);
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await _authenticatedPost('notifications/$id/read', const {});
+  }
+
   Future<http.Response> _authenticatedGet(String path) async {
     final headers = await _authenticatedHeaders();
     final endpoint = ApiConfig.endpoint(path);
@@ -99,12 +227,18 @@ class CrmApiService {
     );
   }
 
-  Future<Map<String, String>> _authenticatedHeaders() async {
+  Future<Map<String, String>> _authenticatedHeaders({
+    bool includeContentType = true,
+  }) async {
     final token = await _tokenStore.readToken();
     if (token == null || token.isEmpty) {
       throw const ApiException('Please log in to continue.', statusCode: 401);
     }
-    return {..._jsonHeaders, 'Authorization': 'Bearer $token'};
+    return {
+      'Accept': 'application/json',
+      if (includeContentType) 'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
   }
 
   Future<http.Response> _send(

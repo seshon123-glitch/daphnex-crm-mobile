@@ -6,9 +6,10 @@ import '../../models/dashboard_data.dart';
 import '../../services/crm_api.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.api});
+  const DashboardScreen({super.key, required this.api, this.onOpenMore});
 
   final CrmApi api;
+  final VoidCallback? onOpenMore;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -74,16 +75,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? const LoadingView(label: 'Loading dashboard…')
           : RefreshIndicator(
               onRefresh: _load,
-              child: _DashboardContent(data: _data!),
+              child: _DashboardContent(
+                data: _data!,
+                onOpenMore: widget.onOpenMore,
+              ),
             ),
     );
   }
 }
 
 class _DashboardContent extends StatelessWidget {
-  const _DashboardContent({required this.data});
+  const _DashboardContent({required this.data, this.onOpenMore});
 
   final DashboardData data;
+  final VoidCallback? onOpenMore;
 
   @override
   Widget build(BuildContext context) {
@@ -183,18 +188,48 @@ class _DashboardContent extends StatelessWidget {
               value: '${data.activeJobs}',
               icon: Icons.work_outline_rounded,
               color: const Color(0xFF7B61D1),
+              onTap: onOpenMore,
             ),
             _StatCard(
               label: 'Pending Invoices',
               value: '${data.pendingInvoices}',
               icon: Icons.receipt_long_outlined,
               color: const Color(0xFFF59E0B),
+              onTap: onOpenMore,
             ),
             _StatCard(
               label: 'Upcoming Reminders',
               value: '${data.upcomingReminders}',
               icon: Icons.notifications_active_outlined,
               color: const Color(0xFF10A874),
+            ),
+            _StatCard(
+              label: 'Unpaid Invoices',
+              value: '${data.unpaidInvoices}',
+              icon: Icons.payments_outlined,
+              color: const Color(0xFFDC2626),
+              onTap: onOpenMore,
+            ),
+            _StatCard(
+              label: 'Outstanding',
+              value: moneyLabel(data.outstandingInvoiceAmount),
+              icon: Icons.account_balance_wallet_outlined,
+              color: const Color(0xFF0891B2),
+              onTap: onOpenMore,
+            ),
+            _StatCard(
+              label: 'Completed Jobs',
+              value: '${data.completedJobs}',
+              icon: Icons.task_alt_rounded,
+              color: const Color(0xFF16A34A),
+              onTap: onOpenMore,
+            ),
+            _StatCard(
+              label: 'Unread Alerts',
+              value: '${data.unreadNotifications}',
+              icon: Icons.mark_email_unread_outlined,
+              color: const Color(0xFF9333EA),
+              onTap: onOpenMore,
             ),
           ],
         ),
@@ -209,48 +244,56 @@ class _StatCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
   final String label;
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 22),
             ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: AppColors.text,
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+              ),
             ),
-          ),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
 }
+
+String moneyLabel(int value) => '£${(value / 100).toStringAsFixed(0)}';

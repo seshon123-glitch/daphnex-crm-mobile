@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/crm_api.dart';
 import '../clients/clients_screen.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../more/more_screen.dart';
 import '../reminders/reminders_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -22,9 +23,13 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final screens = <Widget>[
-      DashboardScreen(api: widget.api),
+      DashboardScreen(
+        api: widget.api,
+        onOpenMore: () => setState(() => _selectedIndex = 3),
+      ),
       ClientsScreen(api: widget.api),
       RemindersScreen(api: widget.api),
+      MoreScreen(api: widget.api),
       SettingsScreen(onLogout: widget.onLogout),
     ];
     return Scaffold(
@@ -48,6 +53,11 @@ class _HomeShellState extends State<HomeShell> {
             icon: Icon(Icons.notifications_none_rounded),
             selectedIcon: Icon(Icons.notifications_rounded),
             label: 'Reminders',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.apps_outlined),
+            selectedIcon: Icon(Icons.apps_rounded),
+            label: 'More',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

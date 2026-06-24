@@ -24,8 +24,9 @@ void main() {
     final api = await login(tester);
     expect(api.lastLoginEmail, 'admin@example.test');
     expect(find.text('Business overview'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('Total Clients'), findsOneWidget);
     expect(find.text('Active Jobs'), findsOneWidget);
+    expect(find.text('Unread Alerts'), findsOneWidget);
   });
 
   testWidgets('failed login displays API error', (tester) async {
@@ -104,5 +105,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.session, isFalse);
     expect(find.text('Welcome to Daphnex'), findsOneWidget);
+  });
+
+  testWidgets('more screen opens Phase 3B modules', (tester) async {
+    await login(tester);
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(find.text('Invoices'), findsWidgets);
+    expect(find.text('Jobs'), findsWidgets);
+    expect(find.text('Documents'), findsWidgets);
+    expect(find.text('Notifications'), findsWidgets);
+
+    await tester.tap(find.text('Invoices').last);
+    await tester.pumpAndSettle();
+    expect(find.text('INV-2026-0001'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Jobs').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Website maintenance'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Documents').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Signed Agreement'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notifications').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Follow up with Olivia'), findsOneWidget);
   });
 }
