@@ -101,6 +101,31 @@ void main() {
           if (request.url.path.endsWith('/invoices/1')) {
             return http.Response(jsonEncode(_invoiceJson()), 200);
           }
+          if (request.url.path.endsWith('/invoices/1/pdf')) {
+            expect(request.headers['Accept'], 'application/pdf');
+            return http.Response.bytes(
+              utf8.encode('%PDF-1.4 test'),
+              200,
+              headers: {
+                'content-type': 'application/pdf',
+                'content-disposition': 'inline; filename="INV-1.pdf"',
+              },
+            );
+          }
+          if (request.url.path.endsWith('/invoices/1/download-pdf')) {
+            expect(request.headers['Accept'], 'application/pdf');
+            return http.Response.bytes(
+              utf8.encode('%PDF-1.4 test'),
+              200,
+              headers: {
+                'content-type': 'application/pdf',
+                'content-disposition': 'attachment; filename="INV-1.pdf"',
+              },
+            );
+          }
+          if (request.url.path.endsWith('/invoices/1/payment-link')) {
+            return http.Response(jsonEncode(_paymentJson()), 200);
+          }
           if (request.url.path.endsWith('/invoices/1/mark-paid') ||
               request.url.path.endsWith('/invoices/1/mark-unpaid')) {
             return http.Response(jsonEncode(_invoiceJson()), 200);
@@ -166,6 +191,12 @@ void main() {
 
       expect(await service.fetchInvoices(), hasLength(1));
       expect((await service.fetchInvoice(1)).invoiceNumber, 'INV-1');
+      expect((await service.fetchInvoicePdf(1)).fileName, 'INV-1.pdf');
+      expect((await service.downloadInvoicePdf(1)).bytes, isNotEmpty);
+      expect(
+        (await service.fetchInvoicePaymentLink(1)).paymentUrl,
+        'https://example.test/pay',
+      );
       await service.createInvoice(
         const CreateInvoiceRequest(
           clientId: 1,
@@ -200,6 +231,8 @@ Map<String, dynamic> _invoiceJson() => {
   'id': 1,
   'client_id': 1,
   'client_name': 'Northstar Studio',
+  'project_id': 1,
+  'project_name': 'Website maintenance',
   'invoice_number': 'INV-1',
   'issue_date': '2026-06-24',
   'due_date': '2026-07-01',
@@ -208,6 +241,18 @@ Map<String, dynamic> _invoiceJson() => {
   'balance': 1000,
   'status': 'sent',
   'notes': '',
+  'pdf_url': 'https://example.test/invoices/1/pdf',
+  'download_pdf_url': 'https://example.test/invoices/1/download-pdf',
+  'payment': _paymentJson(),
+};
+
+Map<String, dynamic> _paymentJson() => {
+  'configured': true,
+  'payment_url': 'https://example.test/pay',
+  'public_invoice_url': 'https://example.test/invoices/1/public',
+  'amount_due': 1000,
+  'currency': 'GBP',
+  'requires_bearer': false,
 };
 
 Map<String, dynamic> _jobJson() => {

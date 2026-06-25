@@ -68,6 +68,18 @@ class LiveCrmRepository implements CrmApi {
       _service.createInvoice(request);
 
   @override
+  Future<InvoicePdfFile> fetchInvoicePdf(int id) =>
+      _service.fetchInvoicePdf(id);
+
+  @override
+  Future<InvoicePdfFile> downloadInvoicePdf(int id) =>
+      _service.downloadInvoicePdf(id);
+
+  @override
+  Future<InvoicePayment> fetchInvoicePaymentLink(int id) =>
+      _service.fetchInvoicePaymentLink(id);
+
+  @override
   Future<Invoice> markInvoicePaid(int id) => _service.markInvoicePaid(id);
 
   @override

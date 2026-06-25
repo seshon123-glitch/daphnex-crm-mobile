@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class Invoice {
   const Invoice({
     required this.id,
@@ -11,6 +13,11 @@ class Invoice {
     required this.balance,
     required this.status,
     required this.notes,
+    this.projectId = 0,
+    this.projectName = '',
+    this.pdfUrl = '',
+    this.downloadPdfUrl = '',
+    this.payment = const InvoicePayment(),
     this.items = const [],
     this.activity = const [],
   });
@@ -20,6 +27,8 @@ class Invoice {
       id: (json['id'] as num?)?.toInt() ?? 0,
       clientId: (json['client_id'] as num?)?.toInt() ?? 0,
       clientName: json['client_name'] as String? ?? '',
+      projectId: (json['project_id'] as num?)?.toInt() ?? 0,
+      projectName: json['project_name'] as String? ?? '',
       invoiceNumber: json['invoice_number'] as String? ?? '',
       issueDate: json['issue_date'] as String? ?? '',
       dueDate: json['due_date'] as String? ?? '',
@@ -28,6 +37,11 @@ class Invoice {
       balance: (json['balance'] as num?)?.toInt() ?? 0,
       status: json['status'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
+      pdfUrl: json['pdf_url'] as String? ?? '',
+      downloadPdfUrl: json['download_pdf_url'] as String? ?? '',
+      payment: json['payment'] is Map<String, dynamic>
+          ? InvoicePayment.fromJson(json['payment'] as Map<String, dynamic>)
+          : const InvoicePayment(),
       items: (json['items'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
           .map(InvoiceItem.fromJson)
@@ -43,6 +57,8 @@ class Invoice {
   final int id;
   final int clientId;
   final String clientName;
+  final int projectId;
+  final String projectName;
   final String invoiceNumber;
   final String issueDate;
   final String dueDate;
@@ -51,8 +67,52 @@ class Invoice {
   final int balance;
   final String status;
   final String notes;
+  final String pdfUrl;
+  final String downloadPdfUrl;
+  final InvoicePayment payment;
   final List<InvoiceItem> items;
   final List<String> activity;
+
+  bool get isPaid => status.toLowerCase() == 'paid' || balance <= 0;
+}
+
+class InvoicePayment {
+  const InvoicePayment({
+    this.configured = false,
+    this.paymentUrl = '',
+    this.publicInvoiceUrl = '',
+    this.amountDue = 0,
+    this.currency = 'GBP',
+    this.requiresBearer = false,
+  });
+
+  factory InvoicePayment.fromJson(Map<String, dynamic> json) => InvoicePayment(
+    configured: json['configured'] == true,
+    paymentUrl: json['payment_url'] as String? ?? '',
+    publicInvoiceUrl: json['public_invoice_url'] as String? ?? '',
+    amountDue: (json['amount_due'] as num?)?.toInt() ?? 0,
+    currency: json['currency'] as String? ?? 'GBP',
+    requiresBearer: json['requires_bearer'] == true,
+  );
+
+  final bool configured;
+  final String paymentUrl;
+  final String publicInvoiceUrl;
+  final int amountDue;
+  final String currency;
+  final bool requiresBearer;
+}
+
+class InvoicePdfFile {
+  const InvoicePdfFile({
+    required this.bytes,
+    required this.fileName,
+    this.mimeType = 'application/pdf',
+  });
+
+  final Uint8List bytes;
+  final String fileName;
+  final String mimeType;
 }
 
 class InvoiceItem {
@@ -111,4 +171,4 @@ class CreateInvoiceRequest {
 }
 
 String moneyFromMinorUnits(int amount) =>
-    '£${(amount / 100).toStringAsFixed(2)}';
+    'GBP ${(amount / 100).toStringAsFixed(2)}';

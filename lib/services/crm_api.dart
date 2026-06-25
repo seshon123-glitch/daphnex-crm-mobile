@@ -19,6 +19,9 @@ abstract interface class CrmApi {
   Future<List<Invoice>> fetchInvoices();
   Future<Invoice> fetchInvoice(int id);
   Future<Invoice> createInvoice(CreateInvoiceRequest request);
+  Future<InvoicePdfFile> fetchInvoicePdf(int id);
+  Future<InvoicePdfFile> downloadInvoicePdf(int id);
+  Future<InvoicePayment> fetchInvoicePaymentLink(int id);
   Future<Invoice> markInvoicePaid(int id);
   Future<Invoice> markInvoiceUnpaid(int id);
   Future<List<Job>> fetchJobs({String status = 'all'});

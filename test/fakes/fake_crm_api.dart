@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
 import 'package:daphnex_crm_mobile/models/activity.dart';
 import 'package:daphnex_crm_mobile/models/client.dart';
@@ -60,6 +62,8 @@ class FakeCrmApi implements CrmApi {
       id: 1,
       clientId: 1,
       clientName: 'Northstar Studio',
+      projectId: 1,
+      projectName: 'Website maintenance',
       invoiceNumber: 'INV-2026-0001',
       issueDate: '2026-06-24',
       dueDate: '2026-07-01',
@@ -68,6 +72,13 @@ class FakeCrmApi implements CrmApi {
       balance: 15000,
       status: 'sent',
       notes: 'Test invoice',
+      pdfUrl: 'https://example.test/invoices/1/pdf',
+      downloadPdfUrl: 'https://example.test/invoices/1/download-pdf',
+      payment: InvoicePayment(
+        configured: true,
+        paymentUrl: 'https://example.test/pay',
+        amountDue: 15000,
+      ),
     ),
   ];
 
@@ -210,6 +221,19 @@ class FakeCrmApi implements CrmApi {
     invoices.add(invoice);
     return invoice;
   }
+
+  @override
+  Future<InvoicePdfFile> fetchInvoicePdf(int id) async => InvoicePdfFile(
+    bytes: Uint8List.fromList('%PDF-1.4 fake'.codeUnits),
+    fileName: 'invoice-$id.pdf',
+  );
+
+  @override
+  Future<InvoicePdfFile> downloadInvoicePdf(int id) => fetchInvoicePdf(id);
+
+  @override
+  Future<InvoicePayment> fetchInvoicePaymentLink(int id) async =>
+      invoices.firstWhere((invoice) => invoice.id == id).payment;
 
   @override
   Future<Invoice> markInvoicePaid(int id) async {

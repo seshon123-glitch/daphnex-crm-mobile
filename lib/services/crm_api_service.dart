@@ -100,6 +100,17 @@ class CrmApiService {
     return Invoice.fromJson(_decodeObject(response));
   }
 
+  Future<InvoicePdfFile> fetchInvoicePdf(int id) =>
+      _fetchInvoicePdfFile('invoices/$id/pdf', 'invoice-$id.pdf');
+
+  Future<InvoicePdfFile> downloadInvoicePdf(int id) =>
+      _fetchInvoicePdfFile('invoices/$id/download-pdf', 'invoice-$id.pdf');
+
+  Future<InvoicePayment> fetchInvoicePaymentLink(int id) async {
+    final response = await _authenticatedGet('invoices/$id/payment-link');
+    return InvoicePayment.fromJson(_decodeObject(response));
+  }
+
   Future<Invoice> markInvoicePaid(int id) async {
     final response = await _authenticatedPost(
       'invoices/$id/mark-paid',
@@ -210,9 +221,31 @@ class CrmApiService {
   }
 
   Future<http.Response> _authenticatedGet(String path) async {
-    final headers = await _authenticatedHeaders();
+    final headers = await _authenticatedHeaders(includeContentType: false);
     final endpoint = ApiConfig.endpoint(path);
     return _send(endpoint, () => _client.get(endpoint, headers: headers));
+  }
+
+  Future<InvoicePdfFile> _fetchInvoicePdfFile(
+    String path,
+    String fallbackFileName,
+  ) async {
+    final headers = await _authenticatedHeaders(
+      includeContentType: false,
+      accept: 'application/pdf',
+    );
+    final endpoint = ApiConfig.endpoint(path);
+    final response = await _send(
+      endpoint,
+      () => _client.get(endpoint, headers: headers),
+    );
+    return InvoicePdfFile(
+      bytes: response.bodyBytes,
+      fileName: _fileNameFromResponse(response) ?? fallbackFileName,
+      mimeType:
+          response.headers['content-type']?.split(';').first.trim() ??
+          'application/pdf',
+    );
   }
 
   Future<http.Response> _authenticatedPost(
@@ -229,13 +262,14 @@ class CrmApiService {
 
   Future<Map<String, String>> _authenticatedHeaders({
     bool includeContentType = true,
+    String accept = 'application/json',
   }) async {
     final token = await _tokenStore.readToken();
     if (token == null || token.isEmpty) {
       throw const ApiException('Please log in to continue.', statusCode: 401);
     }
     return {
-      'Accept': 'application/json',
+      'Accept': accept,
       if (includeContentType) 'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
@@ -314,6 +348,17 @@ class CrmApiService {
       // Fall through to a stable client-side message.
     }
     return 'The CRM request failed (${response.statusCode}).';
+  }
+
+  String? _fileNameFromResponse(http.Response response) {
+    final disposition = response.headers['content-disposition'];
+    if (disposition == null || disposition.isEmpty) return null;
+    final match = RegExp(
+      r'''filename\*?=(?:UTF-8''|")?([^";]+)"?''',
+      caseSensitive: false,
+    ).firstMatch(disposition);
+    final value = match?.group(1);
+    return value == null || value.isEmpty ? null : Uri.decodeFull(value);
   }
 
   static const _jsonHeaders = <String, String>{

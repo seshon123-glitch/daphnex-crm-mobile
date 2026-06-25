@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
@@ -152,6 +157,7 @@ class InvoiceDetailScreen extends StatefulWidget {
 class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   Invoice? _invoice;
   String? _error;
+  String? _busyAction;
 
   @override
   void initState() {
@@ -184,21 +190,122 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
-  void _showPdfPlaceholder() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'PDF invoice download will be available after the invoice PDF API is added.',
+  Future<void> _viewPdf() async {
+    await _runAction('view_pdf', () async {
+      final pdf = await widget.api.fetchInvoicePdf(widget.invoice.id);
+      final file = await _writePdf(pdf, temporary: true);
+      await _openPdfFile(file.path);
+    });
+  }
+
+  Future<void> _downloadPdf() async {
+    await _runAction('download_pdf', () async {
+      final pdf = await widget.api.downloadInvoicePdf(widget.invoice.id);
+      final file = await _writePdf(pdf, temporary: false);
+      await _openPdfFile(file.path);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invoice PDF saved to ${file.path}')),
+      );
+    });
+  }
+
+  Future<void> _payInvoice() async {
+    final current = _invoice;
+    if (current != null && current.isPaid) {
+      _showMessage('Invoice already paid.');
+      return;
+    }
+    await _runAction('pay_invoice', () async {
+      final payment = await widget.api.fetchInvoicePaymentLink(
+        widget.invoice.id,
+      );
+      if (payment.amountDue <= 0) {
+        _showMessage('Invoice already paid.');
+        await _load();
+        return;
+      }
+      if (!payment.configured || payment.paymentUrl.isEmpty) {
+        _showMessage('Card payment is not configured for this invoice.');
+        return;
+      }
+      final uri = Uri.tryParse(payment.paymentUrl);
+      if (uri == null ||
+          !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not open the payment page.');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Payment page opened. Refresh after payment.'),
+          action: SnackBarAction(label: 'Refresh', onPressed: _load),
         ),
-      ),
-    );
+      );
+    });
+  }
+
+  Future<void> _runAction(
+    String action,
+    Future<void> Function() operation,
+  ) async {
+    if (_busyAction != null) return;
+    setState(() => _busyAction = action);
+    try {
+      await operation();
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString());
+    } finally {
+      if (mounted) setState(() => _busyAction = null);
+    }
+  }
+
+  Future<File> _writePdf(InvoicePdfFile pdf, {required bool temporary}) async {
+    final directory = temporary
+        ? await getTemporaryDirectory()
+        : await getApplicationDocumentsDirectory();
+    final fileName = _safeFileName(pdf.fileName);
+    final file = File('${directory.path}${Platform.pathSeparator}$fileName');
+    return file.writeAsBytes(pdf.bytes, flush: true);
+  }
+
+  Future<void> _openPdfFile(String path) async {
+    final result = await OpenFilex.open(path, type: 'application/pdf');
+    if (result.type != ResultType.done) {
+      throw Exception(result.message);
+    }
+  }
+
+  String _safeFileName(String fileName) {
+    final cleaned = fileName
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '-')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.isEmpty) return 'invoice-${widget.invoice.id}.pdf';
+    return cleaned.toLowerCase().endsWith('.pdf') ? cleaned : '$cleaned.pdf';
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final invoice = _invoice;
     return Scaffold(
-      appBar: AppBar(title: const Text('Invoice detail')),
+      appBar: AppBar(
+        title: const Text('Invoice detail'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh invoice',
+            onPressed: _busyAction == null ? _load : null,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: _error != null
           ? ErrorStateView(message: _error!, onRetry: _load)
           : invoice == null
@@ -217,14 +324,25 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   invoice.clientName,
                   style: const TextStyle(color: AppColors.muted),
                 ),
+                if (invoice.projectName.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    invoice.projectName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 _InfoCard(
                   rows: {
+                    'Client': invoice.clientName,
+                    'Project/service': invoice.projectName.isEmpty
+                        ? 'Not linked'
+                        : invoice.projectName,
                     'Issue date': invoice.issueDate,
                     'Due date': invoice.dueDate,
                     'Total': moneyFromMinorUnits(invoice.totalAmount),
                     'Paid': moneyFromMinorUnits(invoice.amountPaid),
-                    'Balance': moneyFromMinorUnits(invoice.balance),
+                    'Outstanding': moneyFromMinorUnits(invoice.balance),
                     'Status': invoice.status,
                     'Notes': invoice.notes.isEmpty
                         ? 'No notes.'
@@ -247,20 +365,38 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Prepared for future Daphnex letterhead invoice PDFs.',
+                          'View, save, or pay this live Daphnex invoice.',
                           style: TextStyle(color: AppColors.muted),
                         ),
                         const SizedBox(height: 14),
                         OutlinedButton.icon(
-                          onPressed: _showPdfPlaceholder,
+                          onPressed: _busyAction == null ? _viewPdf : null,
                           icon: const Icon(Icons.picture_as_pdf_outlined),
-                          label: const Text('View PDF Invoice'),
+                          label: Text(
+                            _busyAction == 'view_pdf'
+                                ? 'Opening PDF...'
+                                : 'View PDF Invoice',
+                          ),
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
-                          onPressed: _showPdfPlaceholder,
+                          onPressed: _busyAction == null ? _downloadPdf : null,
                           icon: const Icon(Icons.download_rounded),
-                          label: const Text('Download PDF Invoice'),
+                          label: Text(
+                            _busyAction == 'download_pdf'
+                                ? 'Downloading...'
+                                : 'Download PDF Invoice',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          onPressed: _busyAction == null ? _payInvoice : null,
+                          icon: const Icon(Icons.payment_rounded),
+                          label: Text(
+                            _busyAction == 'pay_invoice'
+                                ? 'Preparing payment...'
+                                : 'Pay Invoice',
+                          ),
                         ),
                       ],
                     ),
