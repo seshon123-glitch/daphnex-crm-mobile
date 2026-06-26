@@ -1,4 +1,4 @@
-package com.daphnex.daphnex_crm_mobile
+package com.daphnex.crm
 
 import io.flutter.embedding.android.FlutterActivity
 
