@@ -63,97 +63,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   Future<CreateReminderRequest?> _showCreateDialog(List<Client> clients) async {
-    final formKey = GlobalKey<FormState>();
-    final titleController = TextEditingController();
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final dateController = TextEditingController(
-      text:
-          '${tomorrow.year.toString().padLeft(4, '0')}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}',
-    );
-    var clientId = clients.first.id;
-    final result = await showDialog<CreateReminderRequest>(
+    return showDialog<CreateReminderRequest>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('New reminder'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<int>(
-                    key: const Key('reminderClientField'),
-                    initialValue: clientId,
-                    decoration: const InputDecoration(labelText: 'Client'),
-                    items: clients
-                        .map(
-                          (client) => DropdownMenuItem(
-                            value: client.id,
-                            child: Text(client.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) =>
-                        setDialogState(() => clientId = value ?? clientId),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('newReminderField'),
-                    controller: titleController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Reminder title',
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Enter a reminder title'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('reminderDateField'),
-                    controller: dateController,
-                    decoration: const InputDecoration(
-                      labelText: 'Date (YYYY-MM-DD)',
-                      prefixIcon: Icon(Icons.calendar_today_outlined),
-                    ),
-                    validator: (value) =>
-                        value != null &&
-                            RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)
-                        ? null
-                        : 'Use YYYY-MM-DD',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('confirmAddReminder'),
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                Navigator.pop(
-                  context,
-                  CreateReminderRequest(
-                    clientId: clientId,
-                    title: titleController.text.trim(),
-                    date: dateController.text.trim(),
-                  ),
-                );
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _CreateReminderDialog(clients: clients),
     );
-    titleController.dispose();
-    dateController.dispose();
-    return result;
   }
 
   Future<void> _complete(Reminder reminder) async {
@@ -263,6 +176,121 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 },
               ),
             ),
+    );
+  }
+}
+
+class _CreateReminderDialog extends StatefulWidget {
+  const _CreateReminderDialog({required this.clients});
+
+  final List<Client> clients;
+
+  @override
+  State<_CreateReminderDialog> createState() => _CreateReminderDialogState();
+}
+
+class _CreateReminderDialogState extends State<_CreateReminderDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _dateController;
+  late int _clientId;
+
+  @override
+  void initState() {
+    super.initState();
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    _clientId = widget.clients.first.id;
+    _titleController = TextEditingController();
+    _dateController = TextEditingController(
+      text:
+          '${tomorrow.year.toString().padLeft(4, '0')}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}',
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _dateController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      CreateReminderRequest(
+        clientId: _clientId,
+        title: _titleController.text.trim(),
+        date: _dateController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New reminder'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                key: const Key('reminderClientField'),
+                initialValue: _clientId,
+                decoration: const InputDecoration(labelText: 'Client'),
+                items: widget.clients
+                    .map(
+                      (client) => DropdownMenuItem(
+                        value: client.id,
+                        child: Text(client.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _clientId = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('newReminderField'),
+                controller: _titleController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Reminder title'),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a reminder title'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('reminderDateField'),
+                controller: _dateController,
+                decoration: const InputDecoration(
+                  labelText: 'Date (YYYY-MM-DD)',
+                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                ),
+                validator: (value) =>
+                    value != null &&
+                        RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)
+                    ? null
+                    : 'Use YYYY-MM-DD',
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('cancelAddReminder'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('confirmAddReminder'),
+          onPressed: _submit,
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }

@@ -107,7 +107,37 @@ void main() {
     await tester.tap(find.byKey(const Key('confirmAddReminder')));
     await tester.pumpAndSettle();
     expect(api.reminders.length, 2);
+    expect(api.fetchRemindersCalls, 2);
+    expect(find.text('New reminder'), findsNothing);
     expect(find.text('Mobile API reminder'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Clients'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reminders'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mobile API reminder'), findsOneWidget);
+  });
+
+  testWidgets('repeated reminder create and cancel keeps screen usable', (
+    tester,
+  ) async {
+    final api = await login(tester);
+    await tester.tap(find.text('Reminders'));
+    await tester.pumpAndSettle();
+
+    for (var index = 0; index < 3; index++) {
+      await tester.tap(find.byKey(const Key('addReminderButton')));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('New reminder'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('cancelAddReminder')));
+      await tester.pumpAndSettle();
+      expect(find.text('New reminder'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+
+    expect(api.reminders, hasLength(1));
+    expect(find.byKey(const Key('addReminderButton')), findsOneWidget);
   });
 
   testWidgets('settings logout returns to login', (tester) async {

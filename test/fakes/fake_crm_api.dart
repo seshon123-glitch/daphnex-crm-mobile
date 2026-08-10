@@ -20,6 +20,7 @@ class FakeCrmApi implements CrmApi {
   int? reopenedJobId;
   int? paidInvoiceId;
   int? unpaidInvoiceId;
+  int fetchRemindersCalls = 0;
 
   final clients = <Client>[
     const Client(
@@ -163,7 +164,10 @@ class FakeCrmApi implements CrmApi {
       clients.firstWhere((client) => client.id == id);
 
   @override
-  Future<List<Reminder>> fetchReminders() async => List.of(reminders);
+  Future<List<Reminder>> fetchReminders() async {
+    fetchRemindersCalls++;
+    return List.of(reminders);
+  }
 
   @override
   Future<Reminder> createReminder(CreateReminderRequest request) async {

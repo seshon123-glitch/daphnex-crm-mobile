@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/network/document_url_resolver.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
 import '../../models/crm_document.dart';
@@ -41,9 +42,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Future<void> _open(CrmDocument document) async {
     try {
       final download = await widget.api.fetchDocumentDownload(document.id);
-      final uri = Uri.tryParse(download.downloadUrl);
-      if (uri == null ||
-          !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      final uri = DocumentUrlResolver.resolve(download.downloadUrl);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw Exception('Could not open document URL.');
       }
     } catch (error) {

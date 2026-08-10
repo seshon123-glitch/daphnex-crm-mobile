@@ -5,6 +5,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/network/document_url_resolver.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
 import '../../models/invoice.dart';
@@ -229,9 +230,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         _showMessage('Card payment is not configured for this invoice.');
         return;
       }
-      final uri = Uri.tryParse(payment.paymentUrl);
-      if (uri == null ||
-          !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      final uri = DocumentUrlResolver.resolve(payment.paymentUrl);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw Exception('Could not open the payment page.');
       }
       if (!mounted) return;
