@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/errors/api_exception.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/navigation/home_shell.dart';
@@ -19,25 +20,50 @@ class _DaphnexCrmAppState extends State<DaphnexCrmApp> {
   late final CrmApi _api = widget.api ?? LiveCrmRepository();
   bool _isCheckingSession = true;
   bool _isAuthenticated = false;
+  String? _sessionMessage;
 
   @override
   void initState() {
     super.initState();
+    _api.setSessionInvalidatedHandler(_handleSessionInvalidated);
     _restoreSession();
   }
 
   Future<void> _restoreSession() async {
-    final hasSession = await _api.hasSession();
+    bool hasSession = false;
+    String? message;
+    try {
+      hasSession = await _api.hasSession();
+    } on ApiException catch (error) {
+      message = error.message;
+    } catch (_) {
+      message =
+          'The live CRM server could not be reached. Please log in again when your connection is available.';
+    }
     if (!mounted) return;
     setState(() {
       _isAuthenticated = hasSession;
       _isCheckingSession = false;
+      _sessionMessage = message;
     });
   }
 
   Future<void> _logout() async {
     await _api.logout();
-    if (mounted) setState(() => _isAuthenticated = false);
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = false;
+        _sessionMessage = null;
+      });
+    }
+  }
+
+  void _handleSessionInvalidated(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _isAuthenticated = false;
+      _sessionMessage = error.toString();
+    });
   }
 
   @override
@@ -52,6 +78,7 @@ class _DaphnexCrmAppState extends State<DaphnexCrmApp> {
           ? HomeShell(api: _api, onLogout: _logout)
           : LoginScreen(
               api: _api,
+              initialMessage: _sessionMessage,
               onLogin: () => setState(() => _isAuthenticated = true),
             ),
     );

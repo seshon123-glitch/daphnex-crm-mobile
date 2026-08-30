@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
 import 'package:daphnex_crm_mobile/core/storage/token_store.dart';
+import 'package:daphnex_crm_mobile/models/commercial_session.dart';
 import 'package:daphnex_crm_mobile/models/invoice.dart';
 import 'package:daphnex_crm_mobile/models/job.dart';
 import 'package:daphnex_crm_mobile/services/crm_api_service.dart';
@@ -30,7 +31,13 @@ void main() {
       final client = MockClient((request) async {
         if (request.url.path.endsWith('/login')) {
           expect(jsonDecode(request.body)['email'], 'admin@example.test');
-          return http.Response(jsonEncode({'token': 'secure-test-token'}), 200);
+          return http.Response(
+            jsonEncode({
+              'token': 'secure-test-token',
+              'session': _sessionJson(role: 'owner'),
+            }),
+            200,
+          );
         }
         expect(request.headers['Authorization'], 'Bearer secure-test-token');
         return http.Response(
@@ -47,6 +54,7 @@ void main() {
       await service.login(email: 'admin@example.test', password: 'secret');
       final dashboard = await service.fetchDashboard();
       expect(store.token, 'secure-test-token');
+      expect(service.currentSession?.membership.role, CommercialRole.owner);
       expect(dashboard.totalClients, 7);
     },
   );
@@ -75,6 +83,46 @@ void main() {
       ),
     );
     expect(store.token, isNull);
+  });
+
+  test(
+    'stored token is revalidated through commercial session endpoint',
+    () async {
+      final store = MemoryTokenStore()..token = 'stored-token';
+      final service = CrmApiService(
+        tokenStore: store,
+        client: MockClient((request) async {
+          expect(request.url.path, '/wp-json/daphnex-crm/v1/session');
+          expect(request.headers['Authorization'], 'Bearer stored-token');
+          return http.Response(jsonEncode(_sessionJson(role: 'admin')), 200);
+        }),
+      );
+
+      expect(await service.hasSession(), isTrue);
+      expect(service.currentSession?.membership.role, CommercialRole.admin);
+    },
+  );
+
+  test('access removed clears stored token and notifies listener', () async {
+    final store = MemoryTokenStore()..token = 'removed-token';
+    ApiException? invalidation;
+    final service = CrmApiService(
+      tokenStore: store,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'code': 'daphnex_tenant_membership_required',
+            'message': 'No active tenant membership was found.',
+          }),
+          403,
+        ),
+      ),
+    )..onSessionInvalidated = (error) => invalidation = error;
+
+    await expectLater(service.fetchDashboard(), throwsA(isA<ApiException>()));
+    expect(store.token, isNull);
+    expect(service.currentSession, isNull);
+    expect(invalidation?.category, ApiErrorCategory.accessRemoved);
   });
 
   test(
@@ -293,4 +341,64 @@ Map<String, dynamic> _notificationJson() => {
   'read': false,
   'created_at': '2026-06-24T10:00:00Z',
   'related': {'client_id': 1},
+};
+
+Map<String, dynamic> _sessionJson({String role = 'owner'}) => {
+  'user': {
+    'id': 7,
+    'display_name': 'Daphnex User',
+    'email': 'owner@example.test',
+  },
+  'tenant': {
+    'id': 12,
+    'company_name': 'Northstar Studio',
+    'slug': 'northstar-studio',
+    'status': 'active',
+    'currency': 'GBP',
+    'timezone': 'Europe/London',
+  },
+  'membership': {
+    'role': role,
+    'role_label': role,
+    'status': 'active',
+    'active': true,
+  },
+  'company_profile': {
+    'company_name': 'Northstar Studio',
+    'trading_name': 'Northstar',
+    'email': 'hello@example.test',
+    'phone': '07700 900111',
+    'currency': 'GBP',
+    'can_edit': true,
+  },
+  'branding': {
+    'display_name': 'Northstar Studio',
+    'logo_url': '',
+    'initials': 'NS',
+    'accent_color': '#147DE8',
+    'can_edit': true,
+  },
+  'entitlements': {
+    'plan': {
+      'key': 'pilot',
+      'label': 'Pilot',
+      'description': 'Pilot workspace',
+      'internal_only': true,
+    },
+    'status': 'active',
+    'features': {
+      'clients': {
+        'allowed': true,
+        'reason': 'allowed',
+        'message': '',
+        'label': 'Clients',
+      },
+    },
+    'limits': {'clients': 100},
+    'usage': {
+      'clients': {'usage': 3, 'limit': 100, 'label': 'Clients'},
+    },
+    'upgrade_required': false,
+    'placeholder_notice': 'Development placeholder',
+  },
 };

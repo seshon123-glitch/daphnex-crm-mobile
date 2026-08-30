@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
 import 'package:daphnex_crm_mobile/models/activity.dart';
 import 'package:daphnex_crm_mobile/models/client.dart';
+import 'package:daphnex_crm_mobile/models/commercial_session.dart';
 import 'package:daphnex_crm_mobile/models/crm_document.dart';
 import 'package:daphnex_crm_mobile/models/crm_notification.dart';
 import 'package:daphnex_crm_mobile/models/dashboard_data.dart';
@@ -14,6 +15,7 @@ import 'package:daphnex_crm_mobile/services/crm_api.dart';
 class FakeCrmApi implements CrmApi {
   bool session = false;
   bool failLogin = false;
+  ApiException? bootstrapError;
   String? lastLoginEmail;
   int? completedReminderId;
   int? completedJobId;
@@ -130,7 +132,53 @@ class FakeCrmApi implements CrmApi {
   ];
 
   @override
-  Future<bool> hasSession() async => session;
+  CommercialSession? currentSession;
+
+  void Function(ApiException error)? _onSessionInvalidated;
+
+  @override
+  void setSessionInvalidatedHandler(
+    void Function(ApiException error)? handler,
+  ) {
+    _onSessionInvalidated = handler;
+  }
+
+  @override
+  Future<bool> hasSession() async {
+    if (!session) return false;
+    await bootstrapSession();
+    return true;
+  }
+
+  @override
+  Future<CommercialSession> bootstrapSession() async {
+    final error = bootstrapError;
+    if (error != null) {
+      _clearFor(error);
+      throw error;
+    }
+    currentSession = commercialSessionFixture();
+    return currentSession!;
+  }
+
+  Future<void> _ensureProtectedAccess() async {
+    final error = bootstrapError;
+    if (error != null) {
+      _clearFor(error);
+      throw error;
+    }
+  }
+
+  void _clearFor(ApiException error) {
+    session = false;
+    currentSession = null;
+    if (error.shouldClearSession) _onSessionInvalidated?.call(error);
+  }
+
+  void simulateSessionInvalidated(ApiException error) {
+    bootstrapError = error;
+    _clearFor(error);
+  }
 
   @override
   Future<void> login({required String email, required String password}) async {
@@ -139,10 +187,14 @@ class FakeCrmApi implements CrmApi {
       throw const ApiException('Invalid email or password.', statusCode: 401);
     }
     session = true;
+    await bootstrapSession();
   }
 
   @override
-  Future<void> logout() async => session = false;
+  Future<void> logout() async {
+    session = false;
+    currentSession = null;
+  }
 
   @override
   Future<DashboardData> fetchDashboard() async => const DashboardData(
@@ -157,7 +209,10 @@ class FakeCrmApi implements CrmApi {
   );
 
   @override
-  Future<List<Client>> fetchClients() async => List.of(clients);
+  Future<List<Client>> fetchClients() async {
+    await _ensureProtectedAccess();
+    return List.of(clients);
+  }
 
   @override
   Future<Client> fetchClient(int id) async =>
@@ -345,3 +400,52 @@ class FakeCrmApi implements CrmApi {
   @override
   Future<void> markNotificationRead(String id) async {}
 }
+
+CommercialSession commercialSessionFixture({
+  CommercialRole role = CommercialRole.owner,
+  String tenantStatus = 'active',
+  bool membershipActive = true,
+}) => CommercialSession(
+  user: const CurrentUser(
+    id: 7,
+    displayName: 'Daphnex User',
+    email: 'owner@example.test',
+  ),
+  tenant: TenantWorkspace(
+    id: 12,
+    companyName: 'Northstar Studio',
+    slug: 'northstar-studio',
+    status: tenantStatus,
+    currency: 'GBP',
+    timezone: 'Europe/London',
+  ),
+  membership: TenantMembership(
+    role: role,
+    roleLabel: role.name,
+    status: membershipActive ? 'active' : 'inactive',
+    active: membershipActive,
+  ),
+  entitlements: EntitlementSummary(
+    plan: const PlanSummary(
+      key: 'pilot',
+      label: 'Pilot',
+      description: 'Pilot workspace',
+      internalOnly: true,
+    ),
+    status: 'active',
+    features: const {},
+    usage: const {},
+    upgradeRequired: false,
+  ),
+  companyProfile: const CompanyProfile(
+    companyName: 'Northstar Studio',
+    tradingName: 'Northstar',
+    email: 'hello@example.test',
+    phone: '07700 900111',
+  ),
+  branding: const BrandingSummary(
+    displayName: 'Northstar Studio',
+    initials: 'NS',
+    accentColor: '#147DE8',
+  ),
+);

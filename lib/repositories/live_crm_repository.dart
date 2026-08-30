@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/errors/api_exception.dart';
 import '../models/client.dart';
+import '../models/commercial_session.dart';
 import '../models/crm_document.dart';
 import '../models/crm_notification.dart';
 import '../models/dashboard_data.dart';
@@ -19,7 +20,20 @@ class LiveCrmRepository implements CrmApi {
   final CrmApiService _service;
 
   @override
+  CommercialSession? get currentSession => _service.currentSession;
+
+  @override
+  void setSessionInvalidatedHandler(
+    void Function(ApiException error)? handler,
+  ) {
+    _service.onSessionInvalidated = handler;
+  }
+
+  @override
   Future<bool> hasSession() => _service.hasSession();
+
+  @override
+  Future<CommercialSession> bootstrapSession() => _service.bootstrapSession();
 
   @override
   Future<void> login({required String email, required String password}) =>

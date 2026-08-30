@@ -1,16 +1,22 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/config/api_config.dart';
 import '../../core/errors/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/brand_logo.dart';
 import '../../services/crm_api.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.api, required this.onLogin});
+  const LoginScreen({
+    super.key,
+    required this.api,
+    required this.onLogin,
+    this.initialMessage,
+  });
 
   final CrmApi api;
   final VoidCallback onLogin;
+  final String? initialMessage;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -23,6 +29,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _errorMessage = widget.initialMessage;
+  }
 
   @override
   void dispose() {
@@ -63,33 +75,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String _formatLoginError(ApiException error) {
-    final buffer = StringBuffer(error.message);
-    buffer
-      ..writeln()
-      ..writeln()
-      ..writeln('Debug details:')
-      ..writeln('API base URL: ${ApiConfig.baseUrl}')
-      ..writeln(
-        'Endpoint called: ${error.endpoint ?? ApiConfig.endpoint('login')}',
-      )
-      ..writeln('HTTP status: ${error.statusCode ?? 'Unavailable'}');
-
-    final body = error.responseBody;
-    if (body != null && body.trim().isNotEmpty) {
-      buffer.writeln('Error body: ${_truncate(body.trim())}');
-    } else {
-      buffer.writeln('Error body: Unavailable');
+    if (kDebugMode) {
+      debugPrint(
+        'Daphnex CRM login failed: status=${error.statusCode}, '
+        'code=${error.code}, endpoint=${error.endpoint}',
+      );
     }
-
-    return buffer.toString().trimRight();
-  }
-
-  String _truncate(String value) {
-    const maxLength = 600;
-    if (value.length <= maxLength) {
-      return value;
-    }
-    return '${value.substring(0, maxLength)}...';
+    return error.message;
   }
 
   @override

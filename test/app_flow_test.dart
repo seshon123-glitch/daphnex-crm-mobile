@@ -1,5 +1,5 @@
 import 'package:daphnex_crm_mobile/app.dart';
-import 'package:daphnex_crm_mobile/core/config/api_config.dart';
+import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -55,14 +55,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('loginError')), findsOneWidget);
     expect(find.textContaining('Invalid email or password.'), findsOneWidget);
+    expect(find.textContaining('API base URL:'), findsNothing);
+    expect(find.textContaining('Endpoint called:'), findsNothing);
+  });
+
+  testWidgets('access removal exits protected workspace safely', (
+    tester,
+  ) async {
+    final api = await login(tester);
+    api.simulateSessionInvalidated(
+      const ApiException(
+        'Your access to this company workspace has been removed or deactivated.',
+        statusCode: 403,
+        code: 'daphnex_tenant_membership_required',
+        category: ApiErrorCategory.accessRemoved,
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('loginError')), findsOneWidget);
     expect(
-      find.textContaining('API base URL: ${ApiConfig.baseUrl}'),
+      find.textContaining('access to this company workspace has been removed'),
       findsOneWidget,
     );
-    expect(
-      find.textContaining('Endpoint called: ${ApiConfig.endpoint('login')}'),
-      findsOneWidget,
-    );
+    expect(api.session, isFalse);
+    expect(api.currentSession, isNull);
   });
 
   testWidgets('clients search and live profile work', (tester) async {

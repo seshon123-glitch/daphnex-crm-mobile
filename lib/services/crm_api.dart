@@ -1,4 +1,6 @@
+import '../core/errors/api_exception.dart';
 import '../models/client.dart';
+import '../models/commercial_session.dart';
 import '../models/crm_document.dart';
 import '../models/crm_notification.dart';
 import '../models/dashboard_data.dart';
@@ -7,7 +9,10 @@ import '../models/job.dart';
 import '../models/reminder.dart';
 
 abstract interface class CrmApi {
+  CommercialSession? get currentSession;
+  void setSessionInvalidatedHandler(void Function(ApiException error)? handler);
   Future<bool> hasSession();
+  Future<CommercialSession> bootstrapSession();
   Future<void> login({required String email, required String password});
   Future<void> logout();
   Future<DashboardData> fetchDashboard();
