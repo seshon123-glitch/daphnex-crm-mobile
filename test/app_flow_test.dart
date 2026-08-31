@@ -1,5 +1,6 @@
 import 'package:daphnex_crm_mobile/app.dart';
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
+import 'package:daphnex_crm_mobile/models/commercial_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,8 +13,11 @@ void main() {
         .first;
   }
 
-  Future<FakeCrmApi> login(WidgetTester tester) async {
-    final api = FakeCrmApi();
+  Future<FakeCrmApi> login(
+    WidgetTester tester, {
+    CommercialRole role = CommercialRole.owner,
+  }) async {
+    final api = FakeCrmApi()..sessionRole = role;
     await tester.pumpWidget(DaphnexCrmApp(api: api));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -26,10 +30,64 @@ void main() {
     return api;
   }
 
+  Future<void> tapBottomDestination(WidgetTester tester, String label) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('commercialBottomNavigation')),
+        matching: find.text(label),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openWorkHub(WidgetTester tester) async {
+    await tapBottomDestination(tester, 'Work');
+    expect(find.byKey(const Key('workClientsCard')), findsOneWidget);
+  }
+
+  Future<void> tapWorkCard(WidgetTester tester, Key key) async {
+    await tester.scrollUntilVisible(
+      find.byKey(key),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    if (key != const Key('workClientsCard')) {
+      await tester.drag(find.byType(Scrollable).last, const Offset(0, -160));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.byKey(key));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapMoreCard(WidgetTester tester, Key key) async {
+    await tester.scrollUntilVisible(
+      find.byKey(key),
+      260,
+      scrollable: scrollableByKey(const Key('moreScroll')),
+    );
+    await tester.tap(find.byKey(key));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> expectMoreCardVisible(WidgetTester tester, Key key) async {
+    await tester.scrollUntilVisible(
+      find.byKey(key),
+      240,
+      scrollable: scrollableByKey(const Key('moreScroll')),
+    );
+    expect(find.byKey(key), findsOneWidget);
+  }
+
   testWidgets('live login opens dashboard values', (tester) async {
     final api = await login(tester);
     expect(api.lastLoginEmail, 'admin@example.test');
     expect(find.text('Business overview'), findsOneWidget);
+    expect(find.byKey(const Key('commercialBottomNavigation')), findsOneWidget);
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Work'), findsOneWidget);
+    expect(find.text('Finance'), findsOneWidget);
+    expect(find.text('Files'), findsOneWidget);
+    expect(find.text('More'), findsOneWidget);
     expect(find.text('Total Clients'), findsOneWidget);
     expect(find.text('Active Jobs / Projects'), findsOneWidget);
     expect(find.text('Unread Alerts'), findsOneWidget);
@@ -39,7 +97,6 @@ void main() {
       scrollable: scrollableByKey(const Key('dashboardScroll')),
     );
     expect(find.text('Quick actions'), findsOneWidget);
-    expect(find.text('Turnover / Revenue'), findsWidgets);
   });
 
   testWidgets('failed login displays API error', (tester) async {
@@ -84,8 +141,8 @@ void main() {
 
   testWidgets('clients search and live profile work', (tester) async {
     await login(tester);
-    await tester.tap(find.text('Clients'));
-    await tester.pumpAndSettle();
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workClientsCard'));
     await tester.enterText(find.byKey(const Key('clientSearch')), 'Brightline');
     await tester.pump();
     expect(find.text('Marcus Chen'), findsOneWidget);
@@ -103,8 +160,8 @@ void main() {
 
   testWidgets('reminder completion calls API and updates UI', (tester) async {
     final api = await login(tester);
-    await tester.tap(find.text('Reminders'));
-    await tester.pumpAndSettle();
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workRemindersCard'));
     await tester.tap(find.byKey(const Key('reminder-1')));
     await tester.pumpAndSettle();
     expect(api.completedReminderId, 1);
@@ -113,8 +170,8 @@ void main() {
 
   testWidgets('add reminder posts and refreshes list', (tester) async {
     final api = await login(tester);
-    await tester.tap(find.text('Reminders'));
-    await tester.pumpAndSettle();
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workRemindersCard'));
     await tester.tap(find.byKey(const Key('addReminderButton')));
     await tester.pump(const Duration(milliseconds: 500));
     await tester.enterText(
@@ -129,10 +186,10 @@ void main() {
     expect(find.text('Mobile API reminder'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Clients'));
+    await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reminders'));
-    await tester.pumpAndSettle();
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workRemindersCard'));
     expect(find.text('Mobile API reminder'), findsOneWidget);
   });
 
@@ -140,8 +197,8 @@ void main() {
     tester,
   ) async {
     final api = await login(tester);
-    await tester.tap(find.text('Reminders'));
-    await tester.pumpAndSettle();
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workRemindersCard'));
 
     for (var index = 0; index < 3; index++) {
       await tester.tap(find.byKey(const Key('addReminderButton')));
@@ -159,8 +216,9 @@ void main() {
 
   testWidgets('settings logout returns to login', (tester) async {
     final api = await login(tester);
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await tapBottomDestination(tester, 'More');
+    await tapMoreCard(tester, const Key('moreSettings'));
+    expect(find.text('Settings'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('logoutButton')),
       300,
@@ -169,64 +227,75 @@ void main() {
     await tester.tap(find.byKey(const Key('logoutButton')));
     await tester.pumpAndSettle();
     expect(api.session, isFalse);
-    expect(find.text('Daphnex CRM'), findsOneWidget);
+    expect(find.byKey(const Key('emailField')), findsOneWidget);
   });
 
   testWidgets('more screen opens polished module menu', (tester) async {
     await login(tester);
-    await tester.tap(find.text('More'));
-    await tester.pumpAndSettle();
-    expect(find.text('Invoices'), findsWidgets);
-    expect(find.text('Jobs / Projects'), findsWidgets);
-    expect(find.text('Documents'), findsWidgets);
+    await tapBottomDestination(tester, 'More');
+    expect(find.byKey(const Key('moreCompanyProfile')), findsOneWidget);
+    expect(find.byKey(const Key('moreTeam')), findsOneWidget);
 
-    await tester.tap(find.text('Invoices').last);
-    await tester.pumpAndSettle();
-    expect(find.text('INV-2026-0001'), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    await expectMoreCardVisible(tester, const Key('moreNotifications'));
+    await expectMoreCardVisible(tester, const Key('moreInvoices'));
+    await expectMoreCardVisible(tester, const Key('moreJobsProjects'));
+    await expectMoreCardVisible(tester, const Key('moreDocuments'));
+    await expectMoreCardVisible(tester, const Key('moreRevenue'));
+    await expectMoreCardVisible(tester, const Key('moreTasks'));
+    await expectMoreCardVisible(tester, const Key('moreAbout'));
+  });
 
-    await tester.tap(find.text('Jobs / Projects').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Website maintenance'), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+  testWidgets(
+    'commercial root tabs open Work Finance Files and nested screens',
+    (tester) async {
+      await login(tester);
 
-    await tester.tap(find.text('Documents').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Signed Agreement'), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+      await tapBottomDestination(tester, 'Work');
+      expect(find.byKey(const Key('workClientsCard')), findsOneWidget);
+      await tapWorkCard(tester, const Key('workProjectsCard'));
+      expect(find.text('Website maintenance'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('workClientsCard')), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Notifications'),
-      300,
-      scrollable: scrollableByKey(const Key('moreScroll')),
-    );
-    expect(find.text('Notifications'), findsWidgets);
-    await tester.tap(find.text('Notifications').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Follow up with Olivia'), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+      await tapBottomDestination(tester, 'Finance');
+      expect(find.text('Money in and money due'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('financeInvoicesCard')));
+      await tester.pumpAndSettle();
+      expect(find.text('INV-2026-0001'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Turnover / Revenue'),
-      300,
-      scrollable: scrollableByKey(const Key('moreScroll')),
-    );
-    expect(find.text('Turnover / Revenue'), findsWidgets);
-    await tester.scrollUntilVisible(
-      find.text('Tasks'),
-      300,
-      scrollable: scrollableByKey(const Key('moreScroll')),
-    );
-    expect(find.text('Tasks'), findsWidgets);
-    await tester.scrollUntilVisible(
-      find.text('About Daphnex CRM'),
-      300,
-      scrollable: scrollableByKey(const Key('moreScroll')),
-    );
-    expect(find.text('About Daphnex CRM'), findsWidgets);
+      await tapBottomDestination(tester, 'Files');
+      expect(find.text('Files'), findsWidgets);
+      expect(find.byKey(const Key('filesDocumentsCard')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('filesDocumentsCard')));
+      await tester.pumpAndSettle();
+      expect(find.text('Signed Agreement'), findsOneWidget);
+    },
+  );
+
+  testWidgets('staff More navigation hides management destinations', (
+    tester,
+  ) async {
+    await login(tester, role: CommercialRole.staff);
+    await tapBottomDestination(tester, 'More');
+
+    expect(find.byKey(const Key('moreCompanyProfile')), findsNothing);
+    expect(find.byKey(const Key('moreBranding')), findsNothing);
+    expect(find.byKey(const Key('moreTeam')), findsNothing);
+    expect(find.text('Management restricted'), findsOneWidget);
+    expect(find.byKey(const Key('moreNotifications')), findsOneWidget);
+  });
+
+  testWidgets('admin More navigation shows management foundations', (
+    tester,
+  ) async {
+    await login(tester, role: CommercialRole.admin);
+    await tapBottomDestination(tester, 'More');
+
+    expect(find.byKey(const Key('moreCompanyProfile')), findsOneWidget);
+    expect(find.byKey(const Key('moreBranding')), findsOneWidget);
+    expect(find.byKey(const Key('moreTeam')), findsOneWidget);
   });
 }

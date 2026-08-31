@@ -130,7 +130,10 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 24),
           OutlinedButton.icon(
             key: const Key('logoutButton'),
-            onPressed: () async => onLogout(),
+            onPressed: () async {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              await onLogout();
+            },
             icon: const Icon(Icons.logout_rounded),
             label: const Text('Log out'),
             style: OutlinedButton.styleFrom(

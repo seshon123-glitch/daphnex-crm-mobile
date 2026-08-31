@@ -16,6 +16,7 @@ class FakeCrmApi implements CrmApi {
   bool session = false;
   bool failLogin = false;
   ApiException? bootstrapError;
+  CommercialRole sessionRole = CommercialRole.owner;
   String? lastLoginEmail;
   int? completedReminderId;
   int? completedJobId;
@@ -157,7 +158,7 @@ class FakeCrmApi implements CrmApi {
       _clearFor(error);
       throw error;
     }
-    currentSession = commercialSessionFixture();
+    currentSession = commercialSessionFixture(role: sessionRole);
     return currentSession!;
   }
 

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../services/crm_api.dart';
-import '../clients/clients_screen.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../files/files_hub_screen.dart';
+import '../finance/finance_hub_screen.dart';
 import '../more/more_screen.dart';
-import '../reminders/reminders_screen.dart';
-import '../settings/settings_screen.dart';
+import '../work/work_hub_screen.dart';
+import 'commercial_navigation.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.api, required this.onLogout});
@@ -18,32 +19,51 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  int _selectedIndex = 0;
+  CommercialNavSection _section = CommercialNavSection.dashboard;
+
+  int get _selectedIndex => CommercialNavSection.values.indexOf(_section);
+
+  void _select(CommercialNavSection section) {
+    setState(() => _section = section);
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api.currentSession?.tenant.id !=
+        widget.api.currentSession?.tenant.id) {
+      _section = CommercialNavSection.dashboard;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final screens = <Widget>[
       DashboardScreen(
         api: widget.api,
-        onOpenClients: () => setState(() => _selectedIndex = 1),
-        onOpenTasks: () => setState(() => _selectedIndex = 2),
-        onOpenMore: () => setState(() => _selectedIndex = 3),
+        onOpenClients: () => _select(CommercialNavSection.work),
+        onOpenTasks: () => _select(CommercialNavSection.work),
+        onOpenMore: () => _select(CommercialNavSection.more),
       ),
-      ClientsScreen(api: widget.api),
-      RemindersScreen(api: widget.api),
+      WorkHubScreen(api: widget.api),
+      FinanceHubScreen(api: widget.api),
+      FilesHubScreen(api: widget.api),
       MoreScreen(
         api: widget.api,
-        onOpenTasks: () => setState(() => _selectedIndex = 2),
-        onOpenSettings: () => setState(() => _selectedIndex = 4),
+        onLogout: widget.onLogout,
+        onOpenWork: () => _select(CommercialNavSection.work),
+        onOpenFinance: () => _select(CommercialNavSection.finance),
+        onOpenFiles: () => _select(CommercialNavSection.files),
       ),
-      SettingsScreen(onLogout: widget.onLogout),
     ];
+
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: NavigationBar(
+        key: const Key('commercialBottomNavigation'),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) =>
-            setState(() => _selectedIndex = index),
+            _select(CommercialNavSection.values[index]),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.grid_view_outlined),
@@ -51,24 +71,24 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'Clients',
+            icon: Icon(Icons.workspaces_outline),
+            selectedIcon: Icon(Icons.workspaces_rounded),
+            label: 'Work',
           ),
           NavigationDestination(
-            icon: Icon(Icons.notifications_none_rounded),
-            selectedIcon: Icon(Icons.notifications_rounded),
-            label: 'Reminders',
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+            label: 'Finance',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.folder_copy_outlined),
+            selectedIcon: Icon(Icons.folder_copy_rounded),
+            label: 'Files',
           ),
           NavigationDestination(
             icon: Icon(Icons.apps_outlined),
             selectedIcon: Icon(Icons.apps_rounded),
             label: 'More',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label: 'Settings',
           ),
         ],
       ),

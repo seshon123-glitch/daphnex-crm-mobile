@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'commercial_components.dart';
 
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key, this.label = 'Loading…'});
@@ -9,13 +10,21 @@ class LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const CircularProgressIndicator(),
-        const SizedBox(height: 14),
-        Text(label, style: const TextStyle(color: AppColors.muted)),
-      ],
+    child: Semantics(
+      label: label,
+      liveRegion: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -27,7 +36,7 @@ class ErrorStateView extends StatelessWidget {
     required this.onRetry,
   });
 
-  final String message;
+  final Object message;
   final VoidCallback onRetry;
 
   @override
@@ -37,10 +46,19 @@ class ErrorStateView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 46, color: AppColors.muted),
-          const SizedBox(height: 14),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 18),
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 48,
+            color: AppColors.muted,
+            semanticLabel: 'Unable to load',
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            CommercialErrorPresenter.friendlyMessage(message),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: AppSpacing.xl),
           OutlinedButton.icon(
             key: const Key('retryButton'),
             onPressed: onRetry,
@@ -54,20 +72,47 @@ class ErrorStateView extends StatelessWidget {
 }
 
 class EmptyStateView extends StatelessWidget {
-  const EmptyStateView({super.key, required this.message, required this.icon});
+  const EmptyStateView({
+    super.key,
+    required this.message,
+    required this.icon,
+    this.title,
+    this.action,
+  });
 
   final String message;
   final IconData icon;
+  final String? title;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 46, color: AppColors.muted),
-        const SizedBox(height: 14),
-        Text(message, style: const TextStyle(color: AppColors.muted)),
-      ],
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.xxl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: AppColors.muted, semanticLabel: title),
+          const SizedBox(height: AppSpacing.lg),
+          if (title != null) ...[
+            Text(
+              title!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: AppSpacing.xl),
+            action!,
+          ],
+        ],
+      ),
     ),
   );
 }
