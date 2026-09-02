@@ -17,6 +17,19 @@ class FakeCrmApi implements CrmApi {
   bool failLogin = false;
   ApiException? bootstrapError;
   CommercialRole sessionRole = CommercialRole.owner;
+  String sessionUserDisplayName = 'Daphnex User';
+  String sessionCompanyName = 'Northstar Studio';
+  String sessionBrandingInitials = 'NS';
+  DashboardData dashboardData = const DashboardData(
+    totalClients: 2,
+    activeJobs: 3,
+    completedJobs: 1,
+    pendingInvoices: 4,
+    unpaidInvoices: 2,
+    outstandingInvoiceAmount: 15000,
+    upcomingReminders: 1,
+    unreadNotifications: 1,
+  );
   String? lastLoginEmail;
   int? completedReminderId;
   int? completedJobId;
@@ -158,7 +171,12 @@ class FakeCrmApi implements CrmApi {
       _clearFor(error);
       throw error;
     }
-    currentSession = commercialSessionFixture(role: sessionRole);
+    currentSession = commercialSessionFixture(
+      role: sessionRole,
+      userDisplayName: sessionUserDisplayName,
+      companyName: sessionCompanyName,
+      brandingInitials: sessionBrandingInitials,
+    );
     return currentSession!;
   }
 
@@ -198,16 +216,7 @@ class FakeCrmApi implements CrmApi {
   }
 
   @override
-  Future<DashboardData> fetchDashboard() async => const DashboardData(
-    totalClients: 2,
-    activeJobs: 3,
-    completedJobs: 1,
-    pendingInvoices: 4,
-    unpaidInvoices: 2,
-    outstandingInvoiceAmount: 15000,
-    upcomingReminders: 1,
-    unreadNotifications: 1,
-  );
+  Future<DashboardData> fetchDashboard() async => dashboardData;
 
   @override
   Future<List<Client>> fetchClients() async {
@@ -406,15 +415,18 @@ CommercialSession commercialSessionFixture({
   CommercialRole role = CommercialRole.owner,
   String tenantStatus = 'active',
   bool membershipActive = true,
+  String userDisplayName = 'Daphnex User',
+  String companyName = 'Northstar Studio',
+  String brandingInitials = 'NS',
 }) => CommercialSession(
-  user: const CurrentUser(
+  user: CurrentUser(
     id: 7,
-    displayName: 'Daphnex User',
+    displayName: userDisplayName,
     email: 'owner@example.test',
   ),
   tenant: TenantWorkspace(
     id: 12,
-    companyName: 'Northstar Studio',
+    companyName: companyName,
     slug: 'northstar-studio',
     status: tenantStatus,
     currency: 'GBP',
@@ -438,15 +450,15 @@ CommercialSession commercialSessionFixture({
     usage: const {},
     upgradeRequired: false,
   ),
-  companyProfile: const CompanyProfile(
-    companyName: 'Northstar Studio',
+  companyProfile: CompanyProfile(
+    companyName: companyName,
     tradingName: 'Northstar',
     email: 'hello@example.test',
     phone: '07700 900111',
   ),
-  branding: const BrandingSummary(
-    displayName: 'Northstar Studio',
-    initials: 'NS',
+  branding: BrandingSummary(
+    displayName: companyName,
+    initials: brandingInitials,
     accentColor: '#147DE8',
   ),
 );

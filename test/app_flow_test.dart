@@ -1,6 +1,7 @@
 import 'package:daphnex_crm_mobile/app.dart';
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
 import 'package:daphnex_crm_mobile/models/commercial_session.dart';
+import 'package:daphnex_crm_mobile/models/dashboard_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,9 +17,11 @@ void main() {
   Future<FakeCrmApi> login(
     WidgetTester tester, {
     CommercialRole role = CommercialRole.owner,
+    FakeCrmApi? api,
   }) async {
-    final api = FakeCrmApi()..sessionRole = role;
-    await tester.pumpWidget(DaphnexCrmApp(api: api));
+    final fakeApi = api ?? FakeCrmApi();
+    fakeApi.sessionRole = role;
+    await tester.pumpWidget(DaphnexCrmApp(api: fakeApi));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('emailField')),
@@ -27,7 +30,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('passwordField')), 'secret');
     await tester.tap(find.byKey(const Key('loginButton')));
     await tester.pumpAndSettle();
-    return api;
+    return fakeApi;
   }
 
   Future<void> tapBottomDestination(WidgetTester tester, String label) async {
@@ -81,22 +84,111 @@ void main() {
   testWidgets('live login opens dashboard values', (tester) async {
     final api = await login(tester);
     expect(api.lastLoginEmail, 'admin@example.test');
-    expect(find.text('Business overview'), findsOneWidget);
+    expect(find.byKey(const Key('dashboardHeader')), findsOneWidget);
+    expect(find.text('Northstar Studio'), findsWidgets);
+    expect(find.textContaining('Daphnex'), findsOneWidget);
     expect(find.byKey(const Key('commercialBottomNavigation')), findsOneWidget);
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Dashboard'), findsWidgets);
     expect(find.text('Work'), findsOneWidget);
     expect(find.text('Finance'), findsOneWidget);
     expect(find.text('Files'), findsOneWidget);
     expect(find.text('More'), findsOneWidget);
-    expect(find.text('Total Clients'), findsOneWidget);
-    expect(find.text('Active Jobs / Projects'), findsOneWidget);
-    expect(find.text('Unread Alerts'), findsOneWidget);
+    expect(find.byKey(const Key('needsAttentionSection')), findsOneWidget);
+    expect(find.text('Invoices need attention'), findsOneWidget);
+    expect(find.text('Tasks due soon'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('Quick actions'),
+      find.byKey(const Key('kpiSection')),
       300,
       scrollable: scrollableByKey(const Key('dashboardScroll')),
     );
-    expect(find.text('Quick actions'), findsOneWidget);
+    expect(find.byKey(const Key('kpiSection')), findsOneWidget);
+    expect(find.text('KPI Summary'), findsOneWidget);
+    expect(find.text('Clients'), findsWidgets);
+    expect(find.text('Active Jobs'), findsOneWidget);
+    expect(find.text('Outstanding'), findsOneWidget);
+    expect(find.text('£150'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('quickActionsSection')),
+      300,
+      scrollable: scrollableByKey(const Key('dashboardScroll')),
+    );
+    expect(find.text('Quick Actions'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('recentActivitySection')),
+      300,
+      scrollable: scrollableByKey(const Key('dashboardScroll')),
+    );
+    expect(find.text('Recent Activity'), findsOneWidget);
+    expect(find.text('Follow up with Olivia'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('financeSummarySection')),
+      300,
+      scrollable: scrollableByKey(const Key('dashboardScroll')),
+    );
+    expect(find.text('Revenue / Finance Summary'), findsOneWidget);
+  });
+
+  testWidgets('empty dashboard still gives useful first-use state', (
+    tester,
+  ) async {
+    final api = FakeCrmApi()
+      ..dashboardData = const DashboardData(
+        totalClients: 0,
+        activeJobs: 0,
+        pendingInvoices: 0,
+        upcomingReminders: 0,
+      )
+      ..notifications.clear();
+
+    await login(tester, api: api);
+
+    expect(find.text('Nothing urgent right now.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('recentActivitySection')),
+      300,
+      scrollable: scrollableByKey(const Key('dashboardScroll')),
+    );
+    expect(find.text('No recent activity yet.'), findsOneWidget);
+    expect(find.text('Clients'), findsWidgets);
+    expect(find.text('Tasks'), findsWidgets);
+    expect(find.text('Invoices'), findsWidgets);
+    expect(find.text('Jobs / Projects'), findsWidgets);
+  });
+
+  testWidgets('dashboard handles long company and large currency values', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final api = FakeCrmApi()
+      ..sessionCompanyName =
+          'Northstar Commercial Maintenance and Property Services Limited'
+      ..sessionBrandingInitials = 'NM'
+      ..dashboardData = const DashboardData(
+        totalClients: 987,
+        activeJobs: 48,
+        completedJobs: 122,
+        pendingInvoices: 31,
+        unpaidInvoices: 12,
+        outstandingInvoiceAmount: 987654321,
+        upcomingReminders: 9,
+        unreadNotifications: 6,
+      );
+
+    await login(tester, api: api);
+
+    expect(find.byKey(const Key('dashboardHeader')), findsOneWidget);
+    expect(find.textContaining('Northstar Commercial'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('£9876543'),
+      300,
+      scrollable: scrollableByKey(const Key('dashboardScroll')),
+    );
+    expect(find.text('£9876543'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('failed login displays API error', (tester) async {
