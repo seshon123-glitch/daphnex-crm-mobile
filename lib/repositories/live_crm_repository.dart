@@ -62,6 +62,14 @@ class LiveCrmRepository implements CrmApi {
   Future<Client> fetchClient(int id) => _service.fetchClient(id);
 
   @override
+  Future<Client> createClient(CreateClientRequest request) =>
+      _service.createClient(request);
+
+  @override
+  Future<Client> updateClient(int id, CreateClientRequest request) =>
+      _service.updateClient(id, request);
+
+  @override
   Future<List<Reminder>> fetchReminders() => _service.fetchReminders();
 
   @override

@@ -18,6 +18,8 @@ abstract interface class CrmApi {
   Future<DashboardData> fetchDashboard();
   Future<List<Client>> fetchClients();
   Future<Client> fetchClient(int id);
+  Future<Client> createClient(CreateClientRequest request);
+  Future<Client> updateClient(int id, CreateClientRequest request);
   Future<List<Reminder>> fetchReminders();
   Future<Reminder> createReminder(CreateReminderRequest request);
   Future<Reminder> completeReminder(int id);

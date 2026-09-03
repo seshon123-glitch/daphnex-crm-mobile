@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
 import 'package:daphnex_crm_mobile/core/storage/token_store.dart';
+import 'package:daphnex_crm_mobile/models/client.dart';
 import 'package:daphnex_crm_mobile/models/commercial_session.dart';
 import 'package:daphnex_crm_mobile/models/invoice.dart';
 import 'package:daphnex_crm_mobile/models/job.dart';
@@ -178,6 +179,27 @@ void main() {
               request.url.path.endsWith('/invoices/1/mark-unpaid')) {
             return http.Response(jsonEncode(_invoiceJson()), 200);
           }
+          if (request.url.path.endsWith('/clients')) {
+            if (request.method == 'POST') {
+              final body = jsonDecode(request.body) as Map<String, dynamic>;
+              expect(body['first_name'], 'Priya');
+              return http.Response(jsonEncode(_clientJson(id: 3)), 201);
+            }
+            return http.Response(
+              jsonEncode({
+                'items': [_clientJson()],
+              }),
+              200,
+            );
+          }
+          if (request.url.path.endsWith('/clients/1')) {
+            if (request.method == 'POST') {
+              final body = jsonDecode(request.body) as Map<String, dynamic>;
+              expect(body['company_name'], 'Northstar Updated');
+              return http.Response(jsonEncode(_clientJson()), 200);
+            }
+            return http.Response(jsonEncode(_clientJson()), 200);
+          }
           if (request.url.path.endsWith('/jobs')) {
             if (request.method == 'POST') {
               return http.Response(jsonEncode(_jobJson()), 201);
@@ -237,6 +259,23 @@ void main() {
         }),
       );
 
+      expect(await service.fetchClients(), hasLength(1));
+      expect((await service.fetchClient(1)).name, 'Olivia Bennett');
+      await service.createClient(
+        const CreateClientRequest(
+          firstName: 'Priya',
+          lastName: 'Shah',
+          companyName: 'Blue Finch',
+        ),
+      );
+      await service.updateClient(
+        1,
+        const CreateClientRequest(
+          firstName: 'Olivia',
+          lastName: 'Bennett',
+          companyName: 'Northstar Updated',
+        ),
+      );
       expect(await service.fetchInvoices(), hasLength(1));
       expect((await service.fetchInvoice(1)).invoiceNumber, 'INV-1');
       expect((await service.fetchInvoicePdf(1)).fileName, 'INV-1.pdf');
@@ -271,9 +310,23 @@ void main() {
       expect(await service.fetchNotifications(), hasLength(1));
       await service.markNotificationRead('reminder:1');
       expect(seenPaths, contains('/wp-json/daphnex-crm/v1/jobs/1/notes'));
+      expect(seenPaths, contains('/wp-json/daphnex-crm/v1/clients/1'));
     },
   );
 }
+
+Map<String, dynamic> _clientJson({int id = 1}) => {
+  'id': id,
+  'name': id == 1 ? 'Olivia Bennett' : 'Priya Shah',
+  'first_name': id == 1 ? 'Olivia' : 'Priya',
+  'last_name': id == 1 ? 'Bennett' : 'Shah',
+  'email': 'client@example.test',
+  'phone': '07700 900123',
+  'company': id == 1 ? 'Northstar Studio' : 'Blue Finch',
+  'notes': '',
+  'website': '',
+  'activity': [],
+};
 
 Map<String, dynamic> _invoiceJson() => {
   'id': 1,

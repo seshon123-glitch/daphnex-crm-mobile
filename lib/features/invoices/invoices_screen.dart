@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/network/document_url_resolver.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
+import '../../models/client.dart';
 import '../../models/invoice.dart';
 import '../../services/crm_api.dart';
 
@@ -41,9 +42,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   Future<void> _createInvoice() async {
+    final clients = await widget.api.fetchClients();
+    if (!mounted) return;
+    if (clients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add a client before creating an invoice.'),
+        ),
+      );
+      return;
+    }
     final result = await showDialog<_InvoiceFormResult>(
       context: context,
-      builder: (_) => const _InvoiceDialog(),
+      builder: (_) => _InvoiceDialog(clients: clients),
     );
     if (result == null) return;
     try {
@@ -429,22 +440,30 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 }
 
 class _InvoiceDialog extends StatefulWidget {
-  const _InvoiceDialog();
+  const _InvoiceDialog({required this.clients});
+
+  final List<Client> clients;
 
   @override
   State<_InvoiceDialog> createState() => _InvoiceDialogState();
 }
 
 class _InvoiceDialogState extends State<_InvoiceDialog> {
-  final _clientId = TextEditingController(text: '1');
+  final _formKey = GlobalKey<FormState>();
   final _description = TextEditingController();
   final _amount = TextEditingController(text: '100.00');
   final _dueDate = TextEditingController();
   final _notes = TextEditingController();
+  late int _clientId;
+
+  @override
+  void initState() {
+    super.initState();
+    _clientId = widget.clients.first.id;
+  }
 
   @override
   void dispose() {
-    _clientId.dispose();
     _description.dispose();
     _amount.dispose();
     _dueDate.dispose();
@@ -452,64 +471,109 @@ class _InvoiceDialogState extends State<_InvoiceDialog> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Create invoice'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _clientId,
-              decoration: const InputDecoration(labelText: 'Client ID'),
-            ),
-            TextField(
-              controller: _description,
-              decoration: const InputDecoration(labelText: 'Line description'),
-            ),
-            TextField(
-              controller: _amount,
-              decoration: const InputDecoration(
-                labelText: 'Amount, e.g. 100.00',
-              ),
-            ),
-            TextField(
-              controller: _dueDate,
-              decoration: const InputDecoration(
-                labelText: 'Due date YYYY-MM-DD',
-              ),
-            ),
-            TextField(
-              controller: _notes,
-              decoration: const InputDecoration(labelText: 'Notes'),
-            ),
-          ],
-        ),
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      _InvoiceFormResult(
+        clientId: _clientId,
+        description: _description.text.trim(),
+        amount: _amount.text.trim(),
+        dueDate: _dueDate.text.trim(),
+        notes: _notes.text.trim(),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.pop(
-              context,
-              _InvoiceFormResult(
-                clientId: int.tryParse(_clientId.text) ?? 0,
-                description: _description.text,
-                amount: _amount.text,
-                dueDate: _dueDate.text,
-                notes: _notes.text,
-              ),
-            );
-          },
-          child: const Text('Create'),
-        ),
-      ],
     );
   }
+
+  String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'Required' : null;
+
+  String? _money(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return 'Required';
+    final parsed = num.tryParse(trimmed);
+    if (parsed == null || parsed <= 0) return 'Enter a positive amount';
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Create invoice'),
+    content: SizedBox(
+      width: double.maxFinite,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                key: const Key('invoiceClientField'),
+                initialValue: _clientId,
+                decoration: const InputDecoration(labelText: 'Client'),
+                items: widget.clients
+                    .map(
+                      (client) => DropdownMenuItem(
+                        value: client.id,
+                        child: Text(
+                          client.company.isEmpty ? client.name : client.company,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _clientId = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('invoiceDescriptionField'),
+                controller: _description,
+                decoration: const InputDecoration(
+                  labelText: 'Line description',
+                ),
+                validator: _required,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('invoiceAmountField'),
+                controller: _amount,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Amount, e.g. 100.00',
+                ),
+                validator: _money,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('invoiceDueDateField'),
+                controller: _dueDate,
+                decoration: const InputDecoration(
+                  labelText: 'Due date YYYY-MM-DD',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notes,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                minLines: 2,
+                maxLines: 4,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('Create')),
+    ],
+  );
 }
 
 class _InvoiceFormResult {

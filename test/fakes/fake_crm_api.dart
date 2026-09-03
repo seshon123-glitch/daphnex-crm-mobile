@@ -229,6 +229,44 @@ class FakeCrmApi implements CrmApi {
       clients.firstWhere((client) => client.id == id);
 
   @override
+  Future<Client> createClient(CreateClientRequest request) async {
+    await _ensureProtectedAccess();
+    final client = Client(
+      id: clients.length + 1,
+      name: '${request.firstName} ${request.lastName}'.trim(),
+      firstName: request.firstName,
+      lastName: request.lastName,
+      email: request.email,
+      phone: request.phone,
+      company: request.companyName,
+      notes: request.notes,
+      website: request.website,
+    );
+    clients.add(client);
+    return client;
+  }
+
+  @override
+  Future<Client> updateClient(int id, CreateClientRequest request) async {
+    await _ensureProtectedAccess();
+    final index = clients.indexWhere((client) => client.id == id);
+    final client = Client(
+      id: id,
+      name: '${request.firstName} ${request.lastName}'.trim(),
+      firstName: request.firstName,
+      lastName: request.lastName,
+      email: request.email,
+      phone: request.phone,
+      company: request.companyName,
+      notes: request.notes,
+      website: request.website,
+      activities: clients[index].activities,
+    );
+    clients[index] = client;
+    return client;
+  }
+
+  @override
   Future<List<Reminder>> fetchReminders() async {
     fetchRemindersCalls++;
     return List.of(reminders);

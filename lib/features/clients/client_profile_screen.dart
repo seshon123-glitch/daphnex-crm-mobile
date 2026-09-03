@@ -42,7 +42,18 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Client profile')),
+      appBar: AppBar(
+        title: const Text('Client profile'),
+        actions: [
+          if (_profile != null)
+            IconButton(
+              key: const Key('editClientButton'),
+              tooltip: 'Edit client',
+              onPressed: _edit,
+              icon: const Icon(Icons.edit_rounded),
+            ),
+        ],
+      ),
       body: _error != null
           ? ErrorStateView(message: _error!, onRetry: _load)
           : _profile == null
@@ -50,6 +61,179 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           : _ProfileContent(client: _profile!),
     );
   }
+
+  Future<void> _edit() async {
+    final profile = _profile;
+    if (profile == null) return;
+    final request = await showDialog<CreateClientRequest>(
+      context: context,
+      builder: (_) => _ClientEditDialog(client: profile),
+    );
+    if (request == null) return;
+    try {
+      final updated = await widget.api.updateClient(profile.id, request);
+      if (mounted) setState(() => _profile = updated);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Client updated.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update client: $error')),
+      );
+    }
+  }
+}
+
+class _ClientEditDialog extends StatefulWidget {
+  const _ClientEditDialog({required this.client});
+
+  final Client client;
+
+  @override
+  State<_ClientEditDialog> createState() => _ClientEditDialogState();
+}
+
+class _ClientEditDialogState extends State<_ClientEditDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _firstName;
+  late final TextEditingController _lastName;
+  late final TextEditingController _company;
+  late final TextEditingController _email;
+  late final TextEditingController _phone;
+  late final TextEditingController _website;
+  late final TextEditingController _notes;
+
+  @override
+  void initState() {
+    super.initState();
+    final request = CreateClientRequest.fromClient(widget.client);
+    _firstName = TextEditingController(text: request.firstName);
+    _lastName = TextEditingController(text: request.lastName);
+    _company = TextEditingController(text: request.companyName);
+    _email = TextEditingController(text: request.email);
+    _phone = TextEditingController(text: request.phone);
+    _website = TextEditingController(text: request.website);
+    _notes = TextEditingController(text: request.notes);
+  }
+
+  @override
+  void dispose() {
+    _firstName.dispose();
+    _lastName.dispose();
+    _company.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _website.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      CreateClientRequest(
+        firstName: _firstName.text,
+        lastName: _lastName.text,
+        companyName: _company.text,
+        email: _email.text,
+        phone: _phone.text,
+        website: _website.text,
+        notes: _notes.text,
+      ),
+    );
+  }
+
+  String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'Required' : null;
+
+  String? _emailOrEmpty(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed)
+        ? null
+        : 'Enter a valid email';
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Edit client'),
+    content: SizedBox(
+      width: double.maxFinite,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                key: const Key('editClientFirstNameField'),
+                controller: _firstName,
+                decoration: const InputDecoration(labelText: 'First name'),
+                validator: _required,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('editClientLastNameField'),
+                controller: _lastName,
+                decoration: const InputDecoration(labelText: 'Last name'),
+                validator: _required,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('editClientCompanyField'),
+                controller: _company,
+                decoration: const InputDecoration(labelText: 'Company'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('editClientEmailField'),
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+                validator: _emailOrEmpty,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('editClientPhoneField'),
+                controller: _phone,
+                decoration: const InputDecoration(labelText: 'Phone'),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('editClientWebsiteField'),
+                controller: _website,
+                decoration: const InputDecoration(labelText: 'Website'),
+                keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('editClientNotesField'),
+                controller: _notes,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                minLines: 2,
+                maxLines: 4,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        key: const Key('cancelEditClient'),
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('saveEditClient'),
+        onPressed: _submit,
+        child: const Text('Save'),
+      ),
+    ],
+  );
 }
 
 class _ProfileContent extends StatelessWidget {

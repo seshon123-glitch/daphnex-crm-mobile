@@ -1,7 +1,9 @@
 import 'package:daphnex_crm_mobile/app.dart';
 import 'package:daphnex_crm_mobile/core/errors/api_exception.dart';
+import 'package:daphnex_crm_mobile/features/documents/documents_screen.dart';
 import 'package:daphnex_crm_mobile/models/commercial_session.dart';
 import 'package:daphnex_crm_mobile/models/dashboard_data.dart';
+import 'package:daphnex_crm_mobile/services/document_picker_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -255,6 +257,46 @@ void main() {
     expect(find.text('No recent activity.'), findsOneWidget);
   });
 
+  testWidgets('client create and edit use live API methods', (tester) async {
+    final api = await login(tester);
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workClientsCard'));
+    await tester.tap(find.byKey(const Key('addClientButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('clientFirstNameField')),
+      'Priya',
+    );
+    await tester.enterText(
+      find.byKey(const Key('clientLastNameField')),
+      'Shah',
+    );
+    await tester.enterText(
+      find.byKey(const Key('clientCompanyField')),
+      'Blue Finch',
+    );
+    await tester.enterText(
+      find.byKey(const Key('clientEmailField')),
+      'priya@example.test',
+    );
+    await tester.tap(find.byKey(const Key('saveClientForm')));
+    await tester.pumpAndSettle();
+    expect(api.clients, hasLength(3));
+    expect(find.text('Priya Shah'), findsOneWidget);
+
+    await tester.tap(find.text('Priya Shah'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('editClientButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('editClientCompanyField')),
+      'Blue Finch Studio',
+    );
+    await tester.tap(find.byKey(const Key('saveEditClient')));
+    await tester.pumpAndSettle();
+    expect(find.text('Blue Finch Studio'), findsWidgets);
+  });
+
   testWidgets('reminder completion calls API and updates UI', (tester) async {
     final api = await login(tester);
     await openWorkHub(tester);
@@ -288,6 +330,65 @@ void main() {
     await openWorkHub(tester);
     await tapWorkCard(tester, const Key('workRemindersCard'));
     expect(find.text('Mobile API reminder'), findsOneWidget);
+  });
+
+  testWidgets('job and invoice creation use client selectors', (tester) async {
+    final api = await login(tester);
+
+    await openWorkHub(tester);
+    await tapWorkCard(tester, const Key('workProjectsCard'));
+    await tester.tap(find.byKey(const Key('createJobButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('jobClientField')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('jobTitleField')),
+      'Mobile rollout',
+    );
+    await tester.tap(find.text('Create').last);
+    await tester.pumpAndSettle();
+    expect(api.jobs, hasLength(2));
+    expect(find.text('Mobile rollout'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tapBottomDestination(tester, 'Finance');
+    await tester.tap(find.byKey(const Key('financeInvoicesCard')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('createInvoiceButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('invoiceClientField')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('invoiceDescriptionField')),
+      'Mobile support',
+    );
+    await tester.enterText(find.byKey(const Key('invoiceAmountField')), '250');
+    await tester.tap(find.text('Create').last);
+    await tester.pumpAndSettle();
+    expect(api.invoices, hasLength(2));
+    expect(find.text('INV-TEST-2'), findsOneWidget);
+  });
+
+  testWidgets('document upload uses safe injected picker and multipart API', (
+    tester,
+  ) async {
+    final api = FakeCrmApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DocumentsScreen(
+          api: api,
+          documentPicker: const _FakeDocumentPicker(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('uploadDocumentButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pickDocumentButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirmDocumentUpload')));
+    await tester.pumpAndSettle();
+    expect(api.documents, hasLength(2));
+    expect(find.text('agreement'), findsOneWidget);
   });
 
   testWidgets('repeated reminder create and cancel keeps screen usable', (
@@ -462,4 +563,18 @@ void main() {
     expect(find.byKey(const Key('moreBranding')), findsOneWidget);
     expect(find.byKey(const Key('moreTeam')), findsOneWidget);
   });
+}
+
+class _FakeDocumentPicker implements DocumentPickerService {
+  const _FakeDocumentPicker();
+
+  @override
+  Future<PickedCrmDocument?> pickDocument() async {
+    return const PickedCrmDocument(
+      filePath: r'C:\temp\agreement.pdf',
+      fileName: 'agreement.pdf',
+      mimeType: 'application/pdf',
+      fileSize: 1024,
+    );
+  }
 }

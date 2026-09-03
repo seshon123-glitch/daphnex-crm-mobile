@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
+import '../../models/client.dart';
 import '../../models/job.dart';
 import '../../services/crm_api.dart';
 
@@ -36,9 +37,17 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 
   Future<void> _createJob() async {
+    final clients = await widget.api.fetchClients();
+    if (!mounted) return;
+    if (clients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a client before creating a job.')),
+      );
+      return;
+    }
     final result = await showDialog<_JobFormResult>(
       context: context,
-      builder: (_) => const _JobDialog(),
+      builder: (_) => _JobDialog(clients: clients),
     );
     if (result == null) return;
     try {
@@ -314,23 +323,31 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 }
 
 class _JobDialog extends StatefulWidget {
-  const _JobDialog();
+  const _JobDialog({required this.clients});
+
+  final List<Client> clients;
 
   @override
   State<_JobDialog> createState() => _JobDialogState();
 }
 
 class _JobDialogState extends State<_JobDialog> {
-  final _clientId = TextEditingController(text: '1');
+  final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _description = TextEditingController();
   final _notes = TextEditingController();
   final _start = TextEditingController();
   final _deadline = TextEditingController();
+  late int _clientId;
+
+  @override
+  void initState() {
+    super.initState();
+    _clientId = widget.clients.first.id;
+  }
 
   @override
   void dispose() {
-    _clientId.dispose();
     _title.dispose();
     _description.dispose();
     _notes.dispose();
@@ -339,40 +356,93 @@ class _JobDialogState extends State<_JobDialog> {
     super.dispose();
   }
 
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      _JobFormResult(
+        clientId: _clientId,
+        title: _title.text.trim(),
+        description: _description.text.trim(),
+        notes: _notes.text.trim(),
+        startDate: _start.text.trim(),
+        deadline: _deadline.text.trim(),
+      ),
+    );
+  }
+
+  String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'Required' : null;
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Create job / project'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _clientId,
-            decoration: const InputDecoration(labelText: 'Client ID'),
+    content: SizedBox(
+      width: double.maxFinite,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                key: const Key('jobClientField'),
+                initialValue: _clientId,
+                decoration: const InputDecoration(labelText: 'Client'),
+                items: widget.clients
+                    .map(
+                      (client) => DropdownMenuItem(
+                        value: client.id,
+                        child: Text(
+                          client.company.isEmpty ? client.name : client.company,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _clientId = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                key: const Key('jobTitleField'),
+                controller: _title,
+                decoration: const InputDecoration(
+                  labelText: 'Job / project title',
+                ),
+                validator: _required,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _description,
+                decoration: const InputDecoration(labelText: 'Description'),
+                minLines: 2,
+                maxLines: 4,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notes,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                minLines: 2,
+                maxLines: 4,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _start,
+                decoration: const InputDecoration(
+                  labelText: 'Start date YYYY-MM-DD',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _deadline,
+                decoration: const InputDecoration(
+                  labelText: 'Deadline YYYY-MM-DD',
+                ),
+              ),
+            ],
           ),
-          TextField(
-            controller: _title,
-            decoration: const InputDecoration(labelText: 'Job / project title'),
-          ),
-          TextField(
-            controller: _description,
-            decoration: const InputDecoration(labelText: 'Description'),
-          ),
-          TextField(
-            controller: _notes,
-            decoration: const InputDecoration(labelText: 'Notes'),
-          ),
-          TextField(
-            controller: _start,
-            decoration: const InputDecoration(
-              labelText: 'Start date YYYY-MM-DD',
-            ),
-          ),
-          TextField(
-            controller: _deadline,
-            decoration: const InputDecoration(labelText: 'Deadline YYYY-MM-DD'),
-          ),
-        ],
+        ),
       ),
     ),
     actions: [
@@ -380,20 +450,7 @@ class _JobDialogState extends State<_JobDialog> {
         onPressed: () => Navigator.pop(context),
         child: const Text('Cancel'),
       ),
-      FilledButton(
-        onPressed: () => Navigator.pop(
-          context,
-          _JobFormResult(
-            clientId: int.tryParse(_clientId.text) ?? 0,
-            title: _title.text,
-            description: _description.text,
-            notes: _notes.text,
-            startDate: _start.text,
-            deadline: _deadline.text,
-          ),
-        ),
-        child: const Text('Create'),
-      ),
+      FilledButton(onPressed: _submit, child: const Text('Create')),
     ],
   );
 }

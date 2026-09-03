@@ -111,6 +111,16 @@ class CrmApiService {
     return Client.fromJson(_decodeObject(response));
   }
 
+  Future<Client> createClient(CreateClientRequest request) async {
+    final response = await _authenticatedPost('clients', request.toJson());
+    return Client.fromJson(_decodeObject(response));
+  }
+
+  Future<Client> updateClient(int id, CreateClientRequest request) async {
+    final response = await _authenticatedPost('clients/$id', request.toJson());
+    return Client.fromJson(_decodeObject(response));
+  }
+
   Future<List<Reminder>> fetchReminders() async {
     final response = await _authenticatedGet('reminders?per_page=100');
     return _decodeItems(
