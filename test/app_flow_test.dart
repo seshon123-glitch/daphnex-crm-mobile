@@ -81,6 +81,11 @@ void main() {
     expect(find.byKey(key), findsOneWidget);
   }
 
+  Future<void> popPushedScreen(WidgetTester tester) async {
+    Navigator.of(tester.element(find.byType(Scaffold).last)).pop();
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('live login opens dashboard values', (tester) async {
     final api = await login(tester);
     expect(api.lastLoginEmail, 'admin@example.test');
@@ -336,6 +341,73 @@ void main() {
     await expectMoreCardVisible(tester, const Key('moreTasks'));
     await expectMoreCardVisible(tester, const Key('moreAbout'));
   });
+
+  testWidgets(
+    'commercial account pages show session plan role and company data',
+    (tester) async {
+      await login(tester, role: CommercialRole.admin);
+      await tapBottomDestination(tester, 'More');
+
+      await tapMoreCard(tester, const Key('moreCompanyProfile'));
+      expect(find.text('Company Profile'), findsWidgets);
+      expect(find.text('Northstar Studio'), findsWidgets);
+      expect(find.text('Read-only on mobile'), findsOneWidget);
+      await popPushedScreen(tester);
+
+      await tapMoreCard(tester, const Key('moreBranding'));
+      expect(find.byKey(const Key('brandingPreviewCard')), findsOneWidget);
+      expect(find.text('Accent #147DE8'), findsOneWidget);
+      await popPushedScreen(tester);
+
+      await tapMoreCard(tester, const Key('morePlanAccount'));
+      expect(find.text('Plan & Account'), findsWidgets);
+      expect(find.text('Pilot'), findsWidgets);
+      expect(find.text('Team members'), findsOneWidget);
+    },
+  );
+
+  testWidgets('feature access page shows locked entitlement state', (
+    tester,
+  ) async {
+    await login(tester, role: CommercialRole.admin);
+    await tapBottomDestination(tester, 'More');
+    await tapMoreCard(tester, const Key('moreFeatureAccess'));
+
+    expect(find.text('Feature Access'), findsWidgets);
+    expect(
+      find.text('Advanced branding requires a future plan upgrade.'),
+      findsOneWidget,
+    );
+    expect(find.text('Locked'), findsOneWidget);
+  });
+
+  testWidgets('team foundation opens for owner and admin roles', (
+    tester,
+  ) async {
+    await login(tester, role: CommercialRole.admin);
+    await tapBottomDestination(tester, 'More');
+    await tapMoreCard(tester, const Key('moreTeam'));
+
+    expect(find.text('Team management foundation'), findsOneWidget);
+    expect(find.text('Owner/Admin visibility prepared'), findsOneWidget);
+  });
+
+  testWidgets(
+    'staff keeps management screens hidden but can view own account',
+    (tester) async {
+      await login(tester, role: CommercialRole.staff);
+      await tapBottomDestination(tester, 'More');
+
+      expect(find.byKey(const Key('moreCompanyProfile')), findsNothing);
+      expect(find.byKey(const Key('moreCompanySettings')), findsNothing);
+      expect(find.byKey(const Key('moreTeam')), findsNothing);
+
+      await tapMoreCard(tester, const Key('moreMyProfile'));
+      expect(find.text('My Profile'), findsWidgets);
+      expect(find.text('Daphnex User'), findsOneWidget);
+      expect(find.text('staff'), findsWidgets);
+    },
+  );
 
   testWidgets(
     'commercial root tabs open Work Finance Files and nested screens',

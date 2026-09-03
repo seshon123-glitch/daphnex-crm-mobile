@@ -446,8 +446,36 @@ CommercialSession commercialSessionFixture({
       internalOnly: true,
     ),
     status: 'active',
-    features: const {},
-    usage: const {},
+    features: const {
+      'team_management': FeatureEntitlement(
+        key: 'team_management',
+        allowed: true,
+        reason: '',
+        message: 'Team management is available for this workspace.',
+        label: 'Team management',
+      ),
+      'advanced_branding': FeatureEntitlement(
+        key: 'advanced_branding',
+        allowed: false,
+        reason: 'feature_not_in_plan',
+        message: 'Advanced branding requires a future plan upgrade.',
+        label: 'Advanced branding',
+      ),
+    },
+    usage: const {
+      'team_members': UsageLimit(
+        key: 'team_members',
+        usage: 2,
+        limit: 5,
+        label: 'Team members',
+      ),
+      'documents': UsageLimit(
+        key: 'documents',
+        usage: 1,
+        limit: 50,
+        label: 'Documents',
+      ),
+    },
     upgradeRequired: false,
   ),
   companyProfile: CompanyProfile(

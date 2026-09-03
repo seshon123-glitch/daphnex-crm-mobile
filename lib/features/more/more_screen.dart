@@ -5,7 +5,7 @@ import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/commercial_components.dart';
 import '../../models/commercial_session.dart';
 import '../../services/crm_api.dart';
-import '../about/about_screen.dart';
+import '../account/account_screens.dart';
 import '../documents/documents_screen.dart';
 import '../invoices/invoices_screen.dart';
 import '../jobs/jobs_screen.dart';
@@ -62,7 +62,7 @@ class MoreScreen extends StatelessWidget {
                 title: 'Company Profile',
                 subtitle: 'Business identity and trading details.',
                 icon: Icons.business_rounded,
-                onTap: () => _comingSoon(context, 'Company Profile'),
+                onTap: () => _push(context, CompanyProfileScreen(api: api)),
               ),
             if (policy.canShowManagementDestination('branding'))
               CommercialHubCard(
@@ -71,7 +71,7 @@ class MoreScreen extends StatelessWidget {
                 subtitle: 'Logo and company presentation settings.',
                 icon: Icons.palette_outlined,
                 color: AppColors.purple,
-                onTap: () => _comingSoon(context, 'Branding'),
+                onTap: () => _push(context, BrandingScreen(api: api)),
               ),
             if (policy.canShowManagementDestination('team_management'))
               CommercialHubCard(
@@ -80,7 +80,7 @@ class MoreScreen extends StatelessWidget {
                 subtitle: 'Invite and manage workspace members.',
                 icon: Icons.group_outlined,
                 color: AppColors.success,
-                onTap: () => _comingSoon(context, 'Team'),
+                onTap: () => _push(context, TeamFoundationScreen(api: api)),
               ),
             if (!policy.canManageBusiness)
               const EntitlementNotice(
@@ -159,7 +159,7 @@ class MoreScreen extends StatelessWidget {
               subtitle: _planSubtitle(session),
               icon: Icons.workspace_premium_outlined,
               badge: _planBadge(session),
-              onTap: () => _comingSoon(context, 'Plan & Account'),
+              onTap: () => _push(context, PlanAccountScreen(api: api)),
             ),
             CommercialHubCard(
               key: const Key('moreMyProfile'),
@@ -168,7 +168,24 @@ class MoreScreen extends StatelessWidget {
                   ? session!.user.email
                   : 'Personal profile settings are coming soon.',
               icon: Icons.person_outline_rounded,
-              onTap: () => _comingSoon(context, 'My Profile'),
+              onTap: () => _push(context, MyProfileScreen(api: api)),
+            ),
+            if (policy.canShowManagementDestination('company_profile'))
+              CommercialHubCard(
+                key: const Key('moreCompanySettings'),
+                title: 'Company Settings',
+                subtitle: 'Workspace lifecycle, currency and timezone.',
+                icon: Icons.admin_panel_settings_outlined,
+                color: AppColors.teal,
+                onTap: () => _push(context, CompanySettingsScreen(api: api)),
+              ),
+            CommercialHubCard(
+              key: const Key('moreFeatureAccess'),
+              title: 'Feature Access',
+              subtitle: 'Plan features, locked states and limits.',
+              icon: Icons.lock_open_outlined,
+              color: AppColors.purple,
+              onTap: () => _push(context, FeatureAccessScreen(api: api)),
             ),
             CommercialHubCard(
               key: const Key('moreSettings'),
@@ -190,7 +207,7 @@ class MoreScreen extends StatelessWidget {
               title: 'About',
               subtitle: 'Daphnex CRM Mobile and company information.',
               icon: Icons.info_outline_rounded,
-              onTap: () => _push(context, const AboutScreen()),
+              onTap: () => _push(context, const AboutDaphnexCommercialScreen()),
             ),
             const CommercialSectionHeader(title: 'Session'),
             OutlinedButton.icon(

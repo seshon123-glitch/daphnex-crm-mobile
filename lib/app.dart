@@ -20,6 +20,7 @@ class _DaphnexCrmAppState extends State<DaphnexCrmApp> {
   late final CrmApi _api = widget.api ?? LiveCrmRepository();
   bool _isCheckingSession = true;
   bool _isAuthenticated = false;
+  int _navigationEpoch = 0;
   String? _sessionMessage;
 
   @override
@@ -52,6 +53,7 @@ class _DaphnexCrmAppState extends State<DaphnexCrmApp> {
     await _api.logout();
     if (mounted) {
       setState(() {
+        _navigationEpoch++;
         _isAuthenticated = false;
         _sessionMessage = null;
       });
@@ -61,6 +63,7 @@ class _DaphnexCrmAppState extends State<DaphnexCrmApp> {
   void _handleSessionInvalidated(Object error) {
     if (!mounted) return;
     setState(() {
+      _navigationEpoch++;
       _isAuthenticated = false;
       _sessionMessage = error.toString();
     });
@@ -69,6 +72,7 @@ class _DaphnexCrmAppState extends State<DaphnexCrmApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      key: ValueKey('daphnex-crm-app-$_navigationEpoch'),
       title: 'Daphnex CRM',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
