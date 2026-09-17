@@ -9,6 +9,12 @@ class Job {
     required this.startDate,
     required this.completionDate,
     required this.notes,
+    this.priority = 'medium',
+    this.type = 'other',
+    this.deadline = '',
+    this.estimatedValue = '',
+    this.expenseAmount = '',
+    this.expenseNotes = '',
     this.recentActivity = const [],
   });
 
@@ -20,9 +26,20 @@ class Job {
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       status: json['status'] as String? ?? '',
+      priority: json['priority'] as String? ?? 'medium',
+      type:
+          json['type'] as String? ?? json['project_type'] as String? ?? 'other',
       startDate: json['start_date'] as String? ?? '',
+      deadline:
+          json['deadline'] as String? ?? json['due_date'] as String? ?? '',
       completionDate: json['completion_date'] as String?,
       notes: json['project_notes'] as String? ?? '',
+      estimatedValue: json['estimated_value']?.toString() ?? '',
+      expenseAmount:
+          json['expense_amount']?.toString() ??
+          json['project_expenses']?.toString() ??
+          '',
+      expenseNotes: json['expense_notes'] as String? ?? '',
       recentActivity: (json['recent_activity'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
           .map((item) => item['action'] as String? ?? '')
@@ -37,9 +54,15 @@ class Job {
   final String title;
   final String description;
   final String status;
+  final String priority;
+  final String type;
   final String startDate;
+  final String deadline;
   final String? completionDate;
   final String notes;
+  final String estimatedValue;
+  final String expenseAmount;
+  final String expenseNotes;
   final List<String> recentActivity;
 }
 
@@ -52,6 +75,9 @@ class CreateJobRequest {
     this.status = 'in_progress',
     this.priority = 'medium',
     this.type = 'other',
+    this.estimatedValue = '',
+    this.expenseAmount = '',
+    this.expenseNotes = '',
     this.startDate = '',
     this.deadline = '',
   });
@@ -63,6 +89,9 @@ class CreateJobRequest {
   final String status;
   final String priority;
   final String type;
+  final String estimatedValue;
+  final String expenseAmount;
+  final String expenseNotes;
   final String startDate;
   final String deadline;
 
@@ -74,6 +103,9 @@ class CreateJobRequest {
     'status': status,
     'priority': priority,
     'type': type,
+    'estimated_value': estimatedValue,
+    'expense_amount': expenseAmount,
+    'expense_notes': expenseNotes,
     'start_date': startDate,
     'deadline': deadline,
   };

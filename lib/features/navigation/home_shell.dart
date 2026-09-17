@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../services/crm_api.dart';
-import '../dashboard/dashboard_screen.dart';
-import '../files/files_hub_screen.dart';
-import '../finance/finance_hub_screen.dart';
+import '../clients/clients_screen.dart';
 import '../more/more_screen.dart';
-import '../work/work_hub_screen.dart';
+import '../outstanding/outstanding_screen.dart';
+import '../reminders/reminders_screen.dart';
+import '../revenue/revenue_screen.dart';
 import 'commercial_navigation.dart';
 
 class HomeShell extends StatefulWidget {
@@ -19,7 +19,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  CommercialNavSection _section = CommercialNavSection.dashboard;
+  CommercialNavSection _section = CommercialNavSection.clients;
 
   int get _selectedIndex => CommercialNavSection.values.indexOf(_section);
 
@@ -32,28 +32,27 @@ class _HomeShellState extends State<HomeShell> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.api.currentSession?.tenant.id !=
         widget.api.currentSession?.tenant.id) {
-      _section = CommercialNavSection.dashboard;
+      _section = CommercialNavSection.clients;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final screens = <Widget>[
-      DashboardScreen(
+      ClientsScreen(api: widget.api),
+      RemindersScreen(api: widget.api),
+      OutstandingScreen(
         api: widget.api,
-        onOpenClients: () => _select(CommercialNavSection.work),
-        onOpenTasks: () => _select(CommercialNavSection.work),
-        onOpenMore: () => _select(CommercialNavSection.more),
+        active: _section == CommercialNavSection.outstanding,
       ),
-      WorkHubScreen(api: widget.api),
-      FinanceHubScreen(api: widget.api),
-      FilesHubScreen(api: widget.api),
+      RevenueScreen(
+        api: widget.api,
+        active: _section == CommercialNavSection.turnover,
+      ),
       MoreScreen(
         api: widget.api,
         onLogout: widget.onLogout,
-        onOpenWork: () => _select(CommercialNavSection.work),
-        onOpenFinance: () => _select(CommercialNavSection.finance),
-        onOpenFiles: () => _select(CommercialNavSection.files),
+        rootTitle: 'Settings',
       ),
     ];
 
@@ -66,29 +65,29 @@ class _HomeShellState extends State<HomeShell> {
             _select(CommercialNavSection.values[index]),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.grid_view_outlined),
-            selectedIcon: Icon(Icons.grid_view_rounded),
-            label: 'Dashboard',
+            icon: Icon(Icons.people_outline_rounded),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'Clients',
           ),
           NavigationDestination(
-            icon: Icon(Icons.workspaces_outline),
-            selectedIcon: Icon(Icons.workspaces_rounded),
-            label: 'Work',
+            icon: Icon(Icons.notifications_active_outlined),
+            selectedIcon: Icon(Icons.notifications_active_rounded),
+            label: 'Reminders',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-            label: 'Finance',
+            label: 'Outstanding',
           ),
           NavigationDestination(
-            icon: Icon(Icons.folder_copy_outlined),
-            selectedIcon: Icon(Icons.folder_copy_rounded),
-            label: 'Files',
+            icon: Icon(Icons.query_stats_outlined),
+            selectedIcon: Icon(Icons.query_stats_rounded),
+            label: 'Turnover',
           ),
           NavigationDestination(
-            icon: Icon(Icons.apps_outlined),
-            selectedIcon: Icon(Icons.apps_rounded),
-            label: 'More',
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: 'Settings',
           ),
         ],
       ),

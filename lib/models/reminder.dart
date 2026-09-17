@@ -6,8 +6,11 @@ class Reminder {
     required this.time,
     required this.status,
     required this.clientId,
+    this.clientName = '',
     this.description = '',
     this.priority = 'medium',
+    this.projectId = 0,
+    this.projectName = '',
   });
 
   factory Reminder.fromJson(Map<String, dynamic> json) {
@@ -20,7 +23,23 @@ class Reminder {
       time: json['time'] as String? ?? '',
       status: json['status'] as String? ?? 'pending',
       priority: json['priority'] as String? ?? 'medium',
-      clientId: (client['id'] as num?)?.toInt() ?? 0,
+      clientId:
+          (json['client_id'] as num?)?.toInt() ??
+          (client['id'] as num?)?.toInt() ??
+          0,
+      clientName:
+          json['client_name'] as String? ?? client['name'] as String? ?? '',
+      projectId: (json['project'] is Map<String, dynamic>)
+          ? ((json['project'] as Map<String, dynamic>)['id'] as num?)
+                    ?.toInt() ??
+                0
+          : (json['project_id'] as num?)?.toInt() ?? 0,
+      projectName: (json['project'] is Map<String, dynamic>)
+          ? ((json['project'] as Map<String, dynamic>)['title'] as String? ??
+                (json['project'] as Map<String, dynamic>)['project_title']
+                    as String? ??
+                '')
+          : json['project_name'] as String? ?? '',
     );
   }
 
@@ -32,6 +51,9 @@ class Reminder {
   final String status;
   final String priority;
   final int clientId;
+  final String clientName;
+  final int projectId;
+  final String projectName;
 
   bool get isCompleted => status == 'completed';
   String get due => [date, time].where((value) => value.isNotEmpty).join(' · ');
@@ -45,6 +67,8 @@ class CreateReminderRequest {
     this.time = '09:00',
     this.description = '',
     this.priority = 'medium',
+    this.status = 'pending',
+    this.projectId = 0,
   });
 
   final int clientId;
@@ -53,13 +77,16 @@ class CreateReminderRequest {
   final String time;
   final String description;
   final String priority;
+  final String status;
+  final int projectId;
 
   Map<String, dynamic> toJson() => {
     'client_id': clientId,
-    'project_id': 0,
+    'project_id': projectId,
     'title': title,
     'description': description,
     'priority': priority,
+    'status': status,
     'date': date,
     'time': time,
   };

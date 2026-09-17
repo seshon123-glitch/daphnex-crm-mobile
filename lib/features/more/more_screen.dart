@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/commercial_components.dart';
+import '../../core/widgets/workspace_banner.dart';
 import '../../models/commercial_session.dart';
 import '../../services/crm_api.dart';
 import '../account/account_screens.dart';
@@ -14,12 +14,14 @@ import '../notifications/notifications_screen.dart';
 import '../reminders/reminders_screen.dart';
 import '../revenue/revenue_screen.dart';
 import '../settings/settings_screen.dart';
+import '../tasks/tasks_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({
     super.key,
     required this.api,
     required this.onLogout,
+    this.rootTitle = 'More',
     this.onOpenWork,
     this.onOpenFinance,
     this.onOpenFiles,
@@ -27,6 +29,7 @@ class MoreScreen extends StatelessWidget {
 
   final CrmApi api;
   final Future<void> Function() onLogout;
+  final String rootTitle;
   final VoidCallback? onOpenWork;
   final VoidCallback? onOpenFinance;
   final VoidCallback? onOpenFiles;
@@ -47,7 +50,7 @@ class MoreScreen extends StatelessWidget {
     final policy = CommercialNavigationPolicy(session);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
+      appBar: AppBar(title: Text(rootTitle)),
       body: SafeArea(
         top: false,
         child: ListView(
@@ -146,10 +149,17 @@ class MoreScreen extends StatelessWidget {
             CommercialHubCard(
               key: const Key('moreTasks'),
               title: 'Tasks',
-              subtitle:
-                  'Currently maps to Reminders until a task API is added.',
+              subtitle: 'Real CRM tasks with client and project context.',
               icon: Icons.checklist_rounded,
               color: AppColors.success,
+              onTap: () => _push(context, TasksScreen(api: api)),
+            ),
+            CommercialHubCard(
+              key: const Key('moreReminders'),
+              title: 'Reminders',
+              subtitle: 'Reminder alerts with optional project context.',
+              icon: Icons.notifications_active_outlined,
+              color: AppColors.blue,
               onTap: () => _push(context, RemindersScreen(api: api)),
             ),
             const CommercialSectionHeader(title: 'Account'),
@@ -253,48 +263,15 @@ class _WorkspaceHeader extends StatelessWidget {
   final CommercialSession? session;
 
   @override
-  Widget build(BuildContext context) {
-    final displayName = session?.branding.displayName.isNotEmpty == true
-        ? session!.branding.displayName
-        : session?.tenant.companyName ?? 'Daphnex CRM';
-    final role = session?.membership.role.name ?? 'staff';
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.navy, AppColors.blue],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadii.xl),
-      ),
-      child: Row(
-        children: [
-          const DaphnexLogoMark(size: 56),
-          const SizedBox(width: AppSpacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Daphnex CRM Mobile · ${role[0].toUpperCase()}${role.substring(1)}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PremiumPageBanner(
+    session: session,
+    title: 'Settings',
+    subtitle:
+        'Manage company profile, branding, plan, team access, support and secure account actions.',
+    icon: Icons.settings_outlined,
+    metrics: {
+      'Plan': session?.entitlements.plan.label ?? 'Current',
+      'Role': session?.membership.roleLabel ?? 'Workspace',
+    },
+  );
 }

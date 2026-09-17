@@ -10,10 +10,14 @@ import '../models/client.dart';
 import '../models/commercial_session.dart';
 import '../models/crm_document.dart';
 import '../models/crm_notification.dart';
+import '../models/crm_task.dart';
 import '../models/dashboard_data.dart';
 import '../models/invoice.dart';
 import '../models/job.dart';
+import '../models/project_expense.dart';
+import '../models/quote.dart';
 import '../models/reminder.dart';
+import '../models/turnover_report.dart';
 
 class CrmApiService {
   CrmApiService({http.Client? client, TokenStore? tokenStore})
@@ -121,15 +125,34 @@ class CrmApiService {
     return Client.fromJson(_decodeObject(response));
   }
 
-  Future<List<Reminder>> fetchReminders() async {
-    final response = await _authenticatedGet('reminders?per_page=100');
-    return _decodeItems(
+  Future<void> deleteClient(int id) async {
+    await _authenticatedDelete('clients/$id');
+  }
+
+  Future<List<Reminder>> fetchReminders({int? clientId}) async {
+    final response = await _authenticatedGet(
+      _collectionEndpoint('reminders', {'per_page': '100'}, clientId),
+    );
+    final reminders = _decodeItems(
       response,
     ).map(Reminder.fromJson).toList(growable: false);
+    return _filterForClient(
+      reminders,
+      clientId,
+      (reminder) => reminder.clientId,
+    );
   }
 
   Future<Reminder> createReminder(CreateReminderRequest request) async {
     final response = await _authenticatedPost('reminders', request.toJson());
+    return Reminder.fromJson(_decodeObject(response));
+  }
+
+  Future<Reminder> updateReminder(int id, CreateReminderRequest request) async {
+    final response = await _authenticatedPost(
+      'reminders/$id',
+      request.toJson(),
+    );
     return Reminder.fromJson(_decodeObject(response));
   }
 
@@ -141,9 +164,53 @@ class CrmApiService {
     return Reminder.fromJson(_decodeObject(response));
   }
 
-  Future<List<Invoice>> fetchInvoices() async {
-    final response = await _authenticatedGet('invoices?per_page=100');
-    return _decodeItems(response).map(Invoice.fromJson).toList(growable: false);
+  Future<void> deleteReminder(int id) async {
+    await _authenticatedDelete('reminders/$id');
+  }
+
+  Future<List<CrmTask>> fetchTasks({
+    String status = 'all',
+    int? clientId,
+  }) async {
+    final response = await _authenticatedGet(
+      _collectionEndpoint('tasks', {
+        'per_page': '100',
+        'status': status,
+      }, clientId),
+    );
+    final tasks = _decodeItems(
+      response,
+    ).map(CrmTask.fromJson).toList(growable: false);
+    return _filterForClient(tasks, clientId, (task) => task.clientId);
+  }
+
+  Future<CrmTask> fetchTask(int id) async {
+    final response = await _authenticatedGet('tasks/$id');
+    return CrmTask.fromJson(_decodeObject(response));
+  }
+
+  Future<CrmTask> createTask(CreateTaskRequest request) async {
+    final response = await _authenticatedPost('tasks', request.toJson());
+    return CrmTask.fromJson(_decodeObject(response));
+  }
+
+  Future<CrmTask> updateTask(int id, CreateTaskRequest request) async {
+    final response = await _authenticatedPost('tasks/$id', request.toJson());
+    return CrmTask.fromJson(_decodeObject(response));
+  }
+
+  Future<void> deleteTask(int id) async {
+    await _authenticatedDelete('tasks/$id');
+  }
+
+  Future<List<Invoice>> fetchInvoices({int? clientId}) async {
+    final response = await _authenticatedGet(
+      _collectionEndpoint('invoices', {'per_page': '100'}, clientId),
+    );
+    final invoices = _decodeItems(
+      response,
+    ).map(Invoice.fromJson).toList(growable: false);
+    return _filterForClient(invoices, clientId, (invoice) => invoice.clientId);
   }
 
   Future<Invoice> fetchInvoice(int id) async {
@@ -183,11 +250,55 @@ class CrmApiService {
     return Invoice.fromJson(_decodeObject(response));
   }
 
-  Future<List<Job>> fetchJobs({String status = 'all'}) async {
-    final response = await _authenticatedGet(
-      'jobs?per_page=100&status=${Uri.encodeQueryComponent(status)}',
+  Future<Invoice> addInvoicePayment(
+    int id,
+    CreateInvoicePaymentRequest request,
+  ) async {
+    final response = await _authenticatedPost(
+      'invoices/$id/payments',
+      request.toJson(),
     );
-    return _decodeItems(response).map(Job.fromJson).toList(growable: false);
+    return Invoice.fromJson(_decodeObject(response));
+  }
+
+  Future<void> deleteInvoice(int id) async {
+    await _authenticatedDelete('invoices/$id');
+  }
+
+  Future<List<Job>> fetchJobs({String status = 'all', int? clientId}) async {
+    final response = await _authenticatedGet(
+      _collectionEndpoint('jobs', {
+        'per_page': '100',
+        'status': status,
+      }, clientId),
+    );
+    final jobs = _decodeItems(
+      response,
+    ).map(Job.fromJson).toList(growable: false);
+    return _filterForClient(jobs, clientId, (job) => job.clientId);
+  }
+
+  List<T> _filterForClient<T>(
+    List<T> items,
+    int? clientId,
+    int Function(T item) clientIdOf,
+  ) {
+    if (clientId == null) return items;
+    return items
+        .where((item) => clientIdOf(item) == clientId)
+        .toList(growable: false);
+  }
+
+  String _collectionEndpoint(
+    String path,
+    Map<String, String> queryParameters,
+    int? clientId,
+  ) {
+    final query = <String, String>{
+      ...queryParameters,
+      if (clientId != null) 'client_id': clientId.toString(),
+    };
+    return '$path?${Uri(queryParameters: query).query}';
   }
 
   Future<Job> fetchJob(int id) async {
@@ -197,6 +308,11 @@ class CrmApiService {
 
   Future<Job> createJob(CreateJobRequest request) async {
     final response = await _authenticatedPost('jobs', request.toJson());
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<Job> updateJob(int id, CreateJobRequest request) async {
+    final response = await _authenticatedPost('jobs/$id', request.toJson());
     return Job.fromJson(_decodeObject(response));
   }
 
@@ -218,6 +334,110 @@ class CrmApiService {
     return Job.fromJson(_decodeObject(response));
   }
 
+  Future<void> deleteJob(int id) async {
+    await _authenticatedDelete('jobs/$id');
+  }
+
+  Future<Job> clearJobExpenses(int id) async {
+    final response = await _authenticatedDelete('jobs/$id/expenses');
+    return Job.fromJson(_decodeObject(response));
+  }
+
+  Future<List<ProjectExpense>> fetchProjectExpenses({
+    int? clientId,
+    int? projectId,
+  }) async {
+    final query = <String, String>{'per_page': '100'};
+    if (clientId != null) query['client_id'] = clientId.toString();
+    if (projectId != null) query['project_id'] = projectId.toString();
+    final response = await _authenticatedGet(
+      'expenses?${Uri(queryParameters: query).query}',
+    );
+    final expenses = _decodeItems(
+      response,
+    ).map(ProjectExpense.fromJson).toList(growable: false);
+    return _filterForClient(expenses, clientId, (expense) => expense.clientId);
+  }
+
+  Future<List<ProjectExpense>> fetchJobExpenses(int jobId) async {
+    final response = await _authenticatedGet(
+      'jobs/$jobId/expenses?per_page=100',
+    );
+    return _decodeItems(
+      response,
+    ).map(ProjectExpense.fromJson).toList(growable: false);
+  }
+
+  Future<ProjectExpense> fetchProjectExpense(int id) async {
+    final response = await _authenticatedGet('expenses/$id');
+    return ProjectExpense.fromJson(_decodeObject(response));
+  }
+
+  Future<ProjectExpense> createJobExpense(
+    int jobId,
+    CreateProjectExpenseRequest request,
+  ) async {
+    final response = await _authenticatedPost(
+      'jobs/$jobId/expenses',
+      request.toJson(),
+    );
+    return ProjectExpense.fromJson(_decodeObject(response));
+  }
+
+  Future<ProjectExpense> updateProjectExpense(
+    int id,
+    CreateProjectExpenseRequest request,
+  ) async {
+    final response = await _authenticatedPost('expenses/$id', request.toJson());
+    return ProjectExpense.fromJson(_decodeObject(response));
+  }
+
+  Future<void> deleteProjectExpense(int id) async {
+    await _authenticatedDelete('expenses/$id');
+  }
+
+  Future<List<Quote>> fetchQuotes({int? clientId}) async {
+    final response = await _authenticatedGet(
+      _collectionEndpoint('quotes', {'per_page': '100'}, clientId),
+    );
+    final quotes = _decodeItems(
+      response,
+    ).map(Quote.fromJson).toList(growable: false);
+    return _filterForClient(quotes, clientId, (quote) => quote.clientId);
+  }
+
+  Future<Quote> fetchQuote(int id) async {
+    final response = await _authenticatedGet('quotes/$id');
+    return Quote.fromJson(_decodeObject(response));
+  }
+
+  Future<Quote> createQuote(CreateQuoteRequest request) async {
+    final response = await _authenticatedPost('quotes', request.toJson());
+    return Quote.fromJson(_decodeObject(response));
+  }
+
+  Future<Quote> updateQuote(int id, CreateQuoteRequest request) async {
+    final response = await _authenticatedPost('quotes/$id', request.toJson());
+    return Quote.fromJson(_decodeObject(response));
+  }
+
+  Future<QuotePdfFile> fetchQuotePdf(int id) =>
+      _fetchQuotePdfFile('quotes/$id/pdf', 'quote-$id.pdf');
+
+  Future<QuotePdfFile> downloadQuotePdf(int id) =>
+      _fetchQuotePdfFile('quotes/$id/download-pdf', 'quote-$id.pdf');
+
+  Future<void> deleteQuote(int id) async {
+    await _authenticatedDelete('quotes/$id');
+  }
+
+  Future<List<TurnoverReportRow>> fetchTurnoverReport() async {
+    final response = await _authenticatedGet('reports/turnover?per_page=12');
+    return _decodeTurnoverRows(
+      response,
+    ).map(TurnoverReportRow.fromJson).toList(growable: false);
+  }
+
   Future<List<CrmDocument>> fetchDocuments() async {
     final response = await _authenticatedGet('documents?per_page=100');
     return _decodeItems(
@@ -229,9 +449,14 @@ class CrmApiService {
     final response = await _authenticatedGet(
       'clients/$clientId/documents?per_page=100',
     );
-    return _decodeItems(
+    final documents = _decodeItems(
       response,
     ).map(CrmDocument.fromJson).toList(growable: false);
+    return _filterForClient(
+      documents,
+      clientId,
+      (document) => document.clientId,
+    );
   }
 
   Future<CrmDocument> uploadClientDocument({
@@ -263,6 +488,10 @@ class CrmApiService {
   Future<DocumentDownload> fetchDocumentDownload(int id) async {
     final response = await _authenticatedGet('documents/$id/download');
     return DocumentDownload.fromJson(_decodeObject(response));
+  }
+
+  Future<void> deleteDocument(int id) async {
+    await _authenticatedDelete('documents/$id');
   }
 
   Future<List<CrmNotification>> fetchNotifications() async {
@@ -304,6 +533,18 @@ class CrmApiService {
     );
   }
 
+  Future<QuotePdfFile> _fetchQuotePdfFile(
+    String path,
+    String fallbackFileName,
+  ) async {
+    final invoicePdf = await _fetchInvoicePdfFile(path, fallbackFileName);
+    return QuotePdfFile(
+      bytes: invoicePdf.bytes,
+      fileName: invoicePdf.fileName,
+      mimeType: invoicePdf.mimeType,
+    );
+  }
+
   Future<http.Response> _authenticatedPost(
     String path,
     Map<String, dynamic> body,
@@ -314,6 +555,12 @@ class CrmApiService {
       endpoint,
       () => _client.post(endpoint, headers: headers, body: jsonEncode(body)),
     );
+  }
+
+  Future<http.Response> _authenticatedDelete(String path) async {
+    final headers = await _authenticatedHeaders(includeContentType: false);
+    final endpoint = ApiConfig.endpoint(path);
+    return _send(endpoint, () => _client.delete(endpoint, headers: headers));
   }
 
   Future<Map<String, String>> _authenticatedHeaders({
@@ -388,6 +635,16 @@ class CrmApiService {
       throw const FormatException('Expected a JSON item collection.');
     }
     return items.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _decodeTurnoverRows(http.Response response) {
+    final data = _decodeObject(response);
+    final rows =
+        data['monthly_breakdown'] ?? data['items'] ?? data['rows'] ?? const [];
+    if (rows is! List<dynamic>) {
+      throw const FormatException('Expected a JSON turnover row collection.');
+    }
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   ApiException _apiException(

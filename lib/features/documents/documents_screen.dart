@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/network/document_url_resolver.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
+import '../../core/widgets/workspace_banner.dart';
 import '../../models/client.dart';
 import '../../models/crm_document.dart';
 import '../../services/crm_api.dart';
@@ -105,6 +106,36 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
+  Future<void> _deleteDocument(CrmDocument document) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete document?'),
+        content: Text('Delete "${document.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.api.deleteDocument(document.id);
+      if (!mounted) return;
+      _showMessage('Document deleted.');
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage('Document could not be deleted: $error');
+    }
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -125,9 +156,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Widget build(BuildContext context) {
     final documents = _documents;
     return Scaffold(
-      appBar: AppBar(title: const Text('Documents')),
+      appBar: AppBar(
+        title: Text(widget.clientId == null ? 'Documents' : 'Client documents'),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('uploadDocumentButton'),
+        heroTag: 'documents-upload-fab',
         onPressed: _uploading ? null : _upload,
         icon: const Icon(Icons.upload_file_rounded),
         label: Text(_uploading ? 'Uploading…' : 'Upload'),
@@ -146,31 +180,53 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
                 children: [
+                  if (widget.clientId == null) ...[
+                    WorkspaceBanner(session: widget.api.currentSession),
+                    const SizedBox(height: 12),
+                  ],
                   const _UploadReadyNotice(),
                   const SizedBox(height: 12),
-                  ...documents.map(
-                    (document) => Padding(
+                  ...documents.asMap().entries.map(
+                    (entry) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Card(
                         child: ListTile(
-                          leading: const CircleAvatar(
+                          leading: CircleAvatar(
                             backgroundColor: AppColors.lightBlue,
-                            child: Icon(
-                              Icons.description_outlined,
-                              color: AppColors.blue,
+                            child: Text(
+                              '${entry.key + 1}.',
+                              style: const TextStyle(
+                                color: AppColors.blue,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                           title: Text(
-                            document.title,
+                            entry.value.title,
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                           subtitle: Text(
-                            '${document.clientName}\n${document.fileName} • ${document.type}',
+                            '${entry.value.clientName}\n${entry.value.fileName} • ${entry.value.type}',
                           ),
                           isThreeLine: true,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.open_in_new_rounded),
-                            onPressed: () => _open(document),
+                          trailing: PopupMenuButton<String>(
+                            tooltip: 'Document actions',
+                            onSelected: (value) {
+                              if (value == 'open') _open(entry.value);
+                              if (value == 'delete') {
+                                _deleteDocument(entry.value);
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'open',
+                                child: Text('Open document'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete document'),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -239,7 +295,7 @@ class _DocumentUploadDialogState extends State<_DocumentUploadDialog> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _description = TextEditingController();
-  String _type = 'general';
+  String _type = 'other';
   late int _clientId;
   PickedCrmDocument? _document;
   String? _pickerError;
@@ -357,12 +413,18 @@ class _DocumentUploadDialogState extends State<_DocumentUploadDialog> {
                 initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items: const [
-                  DropdownMenuItem(value: 'general', child: Text('General')),
+                  DropdownMenuItem(value: 'other', child: Text('General')),
                   DropdownMenuItem(
                     value: 'agreement',
                     child: Text('Agreement'),
                   ),
-                  DropdownMenuItem(value: 'pdf', child: Text('PDF')),
+                  DropdownMenuItem(value: 'proposal', child: Text('Proposal')),
+                  DropdownMenuItem(value: 'brief', child: Text('Brief')),
+                  DropdownMenuItem(value: 'receipt', child: Text('Receipt')),
+                  DropdownMenuItem(
+                    value: 'screenshot',
+                    child: Text('Screenshot'),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value != null) setState(() => _type = value);

@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/commercial_session.dart';
 
-enum CommercialNavSection { dashboard, work, finance, files, more }
+enum CommercialNavSection {
+  clients,
+  reminders,
+  outstanding,
+  turnover,
+  settings,
+}
 
 enum NavigationAvailability {
   available,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/async_state_view.dart';
+import '../../core/widgets/workspace_banner.dart';
 import '../../models/client.dart';
 import '../../services/crm_api.dart';
 import 'client_profile_screen.dart';
@@ -59,14 +60,29 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   List<Client> get _filteredClients {
     final query = _query.toLowerCase().trim();
-    final clients = _clients ?? const <Client>[];
+    final clients = List<Client>.of(_clients ?? const <Client>[])
+      ..sort(
+        (left, right) => _sortName(
+          left,
+        ).toLowerCase().compareTo(_sortName(right).toLowerCase()),
+      );
     if (query.isEmpty) return clients;
-    return clients.where((client) {
-      return client.name.toLowerCase().contains(query) ||
-          client.company.toLowerCase().contains(query) ||
-          client.email.toLowerCase().contains(query);
-    }).toList();
+    return clients
+        .where(
+          (client) => [
+            client.firstName,
+            client.lastName,
+            client.name,
+            client.company,
+            client.phone,
+            client.email,
+          ].any((value) => value.toLowerCase().contains(query)),
+        )
+        .toList();
   }
+
+  String _sortName(Client client) =>
+      client.name.trim().isNotEmpty ? client.name.trim() : client.company.trim();
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +91,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       appBar: AppBar(title: const Text('Clients')),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('addClientButton'),
+        heroTag: 'clients-add-client-fab',
         onPressed: _addClient,
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Client'),
@@ -82,12 +99,23 @@ class _ClientsScreenState extends State<ClientsScreen> {
       body: Column(
         children: [
           Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            child: PremiumPageBanner(
+              session: widget.api.currentSession,
+              title: 'Clients',
+              subtitle:
+                  'Find people and companies quickly, then open each client workspace for projects, tasks, quotes, invoices and documents.',
+              icon: Icons.people_outline_rounded,
+              metrics: {'Search': 'Name', 'Workspace': 'Isolated'},
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: TextField(
               key: const Key('clientSearch'),
               onChanged: (value) => setState(() => _query = value),
               decoration: const InputDecoration(
-                hintText: 'Search clients',
+                hintText: 'Search by name, company, phone or email',
                 prefixIcon: Icon(Icons.search_rounded),
               ),
             ),
@@ -111,6 +139,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                       itemCount: clients.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
                       itemBuilder: (context, index) => _ClientCard(
+                        ordinal: index + 1,
                         api: widget.api,
                         client: clients[index],
                         onChanged: _load,
@@ -126,11 +155,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
 class _ClientCard extends StatelessWidget {
   const _ClientCard({
+    required this.ordinal,
     required this.api,
     required this.client,
     required this.onChanged,
   });
 
+  final int ordinal;
   final CrmApi api;
   final Client client;
   final VoidCallback onChanged;
@@ -156,7 +187,7 @@ class _ClientCard extends StatelessWidget {
               radius: 25,
               backgroundColor: AppColors.lightBlue,
               child: Text(
-                client.initials,
+                '$ordinal.',
                 style: const TextStyle(
                   color: AppColors.blue,
                   fontWeight: FontWeight.w800,
@@ -200,6 +231,21 @@ class _ClientCard extends StatelessWidget {
   );
 }
 
+class _FormGroupHeader extends StatelessWidget {
+  const _FormGroupHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+    ),
+  );
+}
+
 class _ClientFormDialog extends StatefulWidget {
   const _ClientFormDialog();
 
@@ -215,7 +261,14 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
   late final TextEditingController _email;
   late final TextEditingController _phone;
   late final TextEditingController _website;
+  late final TextEditingController _addressLine1;
+  late final TextEditingController _addressLine2;
+  late final TextEditingController _city;
+  late final TextEditingController _countyState;
+  late final TextEditingController _postcode;
+  late final TextEditingController _country;
   late final TextEditingController _notes;
+  String _status = 'active';
 
   @override
   void initState() {
@@ -227,7 +280,14 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
     _email = TextEditingController(text: request.email);
     _phone = TextEditingController(text: request.phone);
     _website = TextEditingController(text: request.website);
+    _addressLine1 = TextEditingController(text: request.addressLine1);
+    _addressLine2 = TextEditingController(text: request.addressLine2);
+    _city = TextEditingController(text: request.city);
+    _countyState = TextEditingController(text: request.countyState);
+    _postcode = TextEditingController(text: request.postcode);
+    _country = TextEditingController(text: request.country);
     _notes = TextEditingController(text: request.notes);
+    _status = request.status;
   }
 
   @override
@@ -238,6 +298,12 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
     _email.dispose();
     _phone.dispose();
     _website.dispose();
+    _addressLine1.dispose();
+    _addressLine2.dispose();
+    _city.dispose();
+    _countyState.dispose();
+    _postcode.dispose();
+    _country.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -252,6 +318,13 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
         email: _email.text,
         phone: _phone.text,
         website: _website.text,
+        status: _status,
+        addressLine1: _addressLine1.text,
+        addressLine2: _addressLine2.text,
+        city: _city.text,
+        countyState: _countyState.text,
+        postcode: _postcode.text,
+        country: _country.text,
         notes: _notes.text,
       ),
     );
@@ -280,10 +353,11 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const _FormGroupHeader('Name'),
                 TextFormField(
                   key: const Key('clientFirstNameField'),
                   controller: _firstName,
-                  decoration: const InputDecoration(labelText: 'First name'),
+                  decoration: const InputDecoration(labelText: 'First Name *'),
                   validator: _required,
                   textInputAction: TextInputAction.next,
                 ),
@@ -291,7 +365,7 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
                 TextFormField(
                   key: const Key('clientLastNameField'),
                   controller: _lastName,
-                  decoration: const InputDecoration(labelText: 'Last name'),
+                  decoration: const InputDecoration(labelText: 'Last Name *'),
                   validator: _required,
                   textInputAction: TextInputAction.next,
                 ),
@@ -299,14 +373,16 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
                 TextFormField(
                   key: const Key('clientCompanyField'),
                   controller: _company,
-                  decoration: const InputDecoration(labelText: 'Company'),
+                  decoration: const InputDecoration(labelText: 'Company Name'),
                   textInputAction: TextInputAction.next,
                 ),
+                const SizedBox(height: 16),
+                const _FormGroupHeader('Contact'),
                 const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('clientEmailField'),
                   controller: _email,
-                  decoration: const InputDecoration(labelText: 'Email'),
+                  decoration: const InputDecoration(labelText: 'Email Address'),
                   keyboardType: TextInputType.emailAddress,
                   validator: _emailOrEmpty,
                   textInputAction: TextInputAction.next,
@@ -315,7 +391,7 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
                 TextFormField(
                   key: const Key('clientPhoneField'),
                   controller: _phone,
-                  decoration: const InputDecoration(labelText: 'Phone'),
+                  decoration: const InputDecoration(labelText: 'Phone Number'),
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
                 ),
@@ -328,10 +404,87 @@ class _ClientFormDialogState extends State<_ClientFormDialog> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: const Key('clientStatusField'),
+                  initialValue: _status,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(value: 'active', child: Text('Active')),
+                    DropdownMenuItem(
+                      value: 'inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _status = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                const _FormGroupHeader('Address'),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('clientAddressLine1Field'),
+                  controller: _addressLine1,
+                  decoration: const InputDecoration(labelText: 'Address'),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('clientCityField'),
+                  controller: _city,
+                  decoration: const InputDecoration(labelText: 'City / Town'),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: const Key('clientPostcodeField'),
+                  controller: _postcode,
+                  decoration: const InputDecoration(labelText: 'Postcode'),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 8),
+                ExpansionTile(
+                  key: const Key('clientMoreAddressDetails'),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  title: const Text('More address details'),
+                  children: [
+                    TextFormField(
+                      key: const Key('clientCountyStateField'),
+                      controller: _countyState,
+                      decoration: const InputDecoration(
+                        labelText: 'County / State / Region',
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('clientCountryField'),
+                      controller: _country,
+                      decoration: const InputDecoration(labelText: 'Country'),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('clientAddressLine2Field'),
+                      controller: _addressLine2,
+                      decoration: const InputDecoration(
+                        labelText: 'Address Line 2',
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const _FormGroupHeader('Notes'),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('clientNotesField'),
                   controller: _notes,
-                  decoration: const InputDecoration(labelText: 'Notes'),
+                  decoration: const InputDecoration(
+                    labelText: 'Notes',
+                    hintText: 'Optional notes about this client',
+                  ),
                   minLines: 2,
                   maxLines: 4,
                 ),

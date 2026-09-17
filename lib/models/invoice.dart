@@ -17,8 +17,10 @@ class Invoice {
     this.projectName = '',
     this.pdfUrl = '',
     this.downloadPdfUrl = '',
+    this.currency = 'GBP',
     this.payment = const InvoicePayment(),
     this.items = const [],
+    this.payments = const [],
     this.activity = const [],
   });
 
@@ -39,6 +41,7 @@ class Invoice {
       notes: json['notes'] as String? ?? '',
       pdfUrl: json['pdf_url'] as String? ?? '',
       downloadPdfUrl: json['download_pdf_url'] as String? ?? '',
+      currency: json['currency'] as String? ?? 'GBP',
       payment: json['payment'] is Map<String, dynamic>
           ? InvoicePayment.fromJson(json['payment'] as Map<String, dynamic>)
           : const InvoicePayment(),
@@ -46,6 +49,13 @@ class Invoice {
           .whereType<Map<String, dynamic>>()
           .map(InvoiceItem.fromJson)
           .toList(growable: false),
+      payments:
+          (json['payments'] as List<dynamic>? ??
+                  json['payment_history'] as List<dynamic>? ??
+                  const [])
+              .whereType<Map<String, dynamic>>()
+              .map(InvoicePaymentRecord.fromJson)
+              .toList(growable: false),
       activity: (json['activity'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
           .map((item) => item['action'] as String? ?? '')
@@ -69,8 +79,10 @@ class Invoice {
   final String notes;
   final String pdfUrl;
   final String downloadPdfUrl;
+  final String currency;
   final InvoicePayment payment;
   final List<InvoiceItem> items;
+  final List<InvoicePaymentRecord> payments;
   final List<String> activity;
 
   bool get isPaid => status.toLowerCase() == 'paid' || balance <= 0;
@@ -138,12 +150,63 @@ class InvoiceItem {
   final int lineTotal;
 }
 
+class InvoicePaymentRecord {
+  const InvoicePaymentRecord({
+    required this.id,
+    required this.amount,
+    this.paidAt = '',
+    this.method = '',
+    this.reference = '',
+    this.status = '',
+  });
+
+  factory InvoicePaymentRecord.fromJson(Map<String, dynamic> json) {
+    return InvoicePaymentRecord(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      paidAt: (json['paid_at'] ?? json['date'] ?? '').toString(),
+      method: (json['payment_method'] ?? json['method'] ?? '').toString(),
+      reference: (json['payment_reference'] ?? json['reference'] ?? '')
+          .toString(),
+      status: (json['status'] ?? '').toString(),
+    );
+  }
+
+  final int id;
+  final int amount;
+  final String paidAt;
+  final String method;
+  final String reference;
+  final String status;
+}
+
+class CreateInvoicePaymentRequest {
+  const CreateInvoicePaymentRequest({
+    required this.amount,
+    required this.paidAt,
+    required this.paymentMethod,
+    required this.paymentReference,
+  });
+
+  final String amount;
+  final String paidAt;
+  final String paymentMethod;
+  final String paymentReference;
+
+  Map<String, dynamic> toJson() => {
+    'amount': amount.trim(),
+    'paid_at': paidAt.trim(),
+    'payment_method': paymentMethod.trim(),
+    'payment_reference': paymentReference.trim(),
+  };
+}
+
 class CreateInvoiceRequest {
   const CreateInvoiceRequest({
     required this.clientId,
-    required this.description,
-    required this.unitAmount,
+    required this.items,
     this.projectId = 0,
+    this.status = 'sent',
     this.issueDate = '',
     this.dueDate = '',
     this.notes = '',
@@ -151,24 +214,56 @@ class CreateInvoiceRequest {
 
   final int clientId;
   final int projectId;
-  final String description;
-  final String unitAmount;
+  final String status;
   final String issueDate;
   final String dueDate;
   final String notes;
+  final List<CreateInvoiceItemRequest> items;
 
   Map<String, dynamic> toJson() => {
     'client_id': clientId,
     'project_id': projectId,
-    'status': 'sent',
+    'status': status,
     'issue_date': issueDate,
     'due_date': dueDate,
     'notes': notes,
-    'items': [
-      {'description': description, 'quantity': 1, 'unit_amount': unitAmount},
-    ],
+    'items': items.map((item) => item.toJson()).toList(growable: false),
   };
 }
 
-String moneyFromMinorUnits(int amount) =>
-    'GBP ${(amount / 100).toStringAsFixed(2)}';
+class CreateInvoiceItemRequest {
+  const CreateInvoiceItemRequest({
+    required this.description,
+    required this.quantity,
+    required this.unitAmount,
+  });
+
+  final String description;
+  final String quantity;
+  final String unitAmount;
+
+  Map<String, dynamic> toJson() => {
+    'description': description.trim(),
+    'quantity': quantity.trim(),
+    'unit_amount': unitAmount.trim(),
+  };
+}
+
+String moneyFromMinorUnits(int amount, {String currency = 'GBP'}) {
+  final code = currency.toUpperCase();
+  final prefix = switch (code) {
+    'GBP' => '£',
+    'USD' => r'$',
+    'EUR' => '€',
+    'NGN' => '₦',
+    'CAD' => r'C$',
+    'AUD' => r'A$',
+    'JPY' => '¥',
+    'CHF' => 'CHF ',
+    'ZAR' => 'R',
+    'GHS' => 'GH₵',
+    'KES' => 'KSh ',
+    _ => '$code ',
+  };
+  return '$prefix${(amount / 100).toStringAsFixed(2)}';
+}

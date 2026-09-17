@@ -1,9 +1,12 @@
 package com.daphnex.crm
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -23,8 +26,74 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "pickDocument" -> pickDocument(result)
+                "sharePdf" -> sharePdf(
+                    call.argument<String>("filePath"),
+                    call.argument<String>("fileName"),
+                    call.argument<String>("mimeType"),
+                    call.argument<String>("text"),
+                    call.argument<String>("subject"),
+                    call.argument<String>("targetPackage"),
+                    result
+                )
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun sharePdf(
+        filePath: String?,
+        fileName: String?,
+        mimeType: String?,
+        text: String?,
+        subject: String?,
+        targetPackage: String?,
+        result: MethodChannel.Result
+    ) {
+        try {
+            if (filePath.isNullOrBlank()) {
+                result.error("share_pdf_missing_file", "Quote PDF is not available to share.", null)
+                return
+            }
+            val file = File(filePath)
+            if (!file.exists() || !file.isFile) {
+                result.error("share_pdf_missing_file", "Quote PDF is not available to share.", null)
+                return
+            }
+            if (file.length() <= 0L) {
+                result.error("share_pdf_empty_file", "Quote PDF is empty and cannot be shared.", null)
+                return
+            }
+            val contentUri = FileProvider.getUriForFile(
+                this,
+                "${applicationContext.packageName}.fileprovider",
+                file
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType ?: "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, contentUri)
+                putExtra(Intent.EXTRA_TEXT, text ?: "")
+                putExtra(Intent.EXTRA_SUBJECT, subject ?: fileName ?: "Quotation PDF")
+                clipData = ClipData.newUri(contentResolver, fileName ?: file.name, contentUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            if (!targetPackage.isNullOrBlank()) {
+                try {
+                    grantUriPermission(
+                        targetPackage,
+                        contentUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                    startActivity(Intent(shareIntent).setPackage(targetPackage))
+                    result.success(null)
+                    return
+                } catch (_: ActivityNotFoundException) {
+                    // Fall back to the normal Android share sheet below.
+                }
+            }
+            startActivity(Intent.createChooser(shareIntent, "Share quote PDF"))
+            result.success(null)
+        } catch (error: Exception) {
+            result.error("share_pdf_failed", "Could not open PDF sharing.", null)
         }
     }
 
